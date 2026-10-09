@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>코딩으로 쌓는 병맛 효도 케이크 — 데모</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">🎂 코딩으로 쌓는 병맛 효도 케이크 <span class="hint">데모</span></div>
+  <div class="steps" aria-label="진행 단계"><span id="st1" class="on">1 인트로</span><span id="st2">2 코딩·실행</span><span id="st3">3 결과</span></div>
+</header>
+
+<main>
+<!-- ============ 장면 1: 인트로 ============ -->
+<section id="scene-intro" class="intro">
+  <div>
+    <h1>병맛 효도 케이크</h1>
+    <p class="sub">우당탕탕! 나우의 장보기 대작전</p>
+    <p class="story">오늘은 사랑하는 엄마의 생신! 길치인 <b>나우</b>를 도와 마트에서 케이크 재료를 사 와야 해요. 하지만 코딩을 한 칸이라도 틀리면… 케이크에 양말이나 벽돌이 들어갈지도 몰라요.</p>
+    <ol>
+      <li>블록을 끌어다 나우가 움직일 순서를 짜요.</li>
+      <li>실행하면 나우가 마트를 돌며 앞에 있는 물건을 집어요.</li>
+      <li>집은 순서 그대로 케이크가 쌓여요. 빵 → 생크림 → 빵 → 생크림 → 토핑 → 초 가 정답!</li>
+    </ol>
+    <button class="btn big" id="btn-start">▶ 게임 시작하기</button>
+  </div>
+  <div class="hero">
+    <div class="mom">엄마: "…나우야, 이게 뭐니?" 😭</div>
+    <div class="cake" id="hero-cake" style="width:260px;font-size:16px"></div>
+    <div class="tag">엄마 생신 D-DAY</div>
+  </div>
+</section>
+
+<!-- ============ 장면 2+3: 코딩 / 실행 ============ -->
+<section id="scene-play" class="play hidden">
+  <div class="panel">
+    <div class="bubble"><span class="who" id="bubble-who">🧒</span><span id="bubble-text">블록을 조립하고 실행을 눌러요!</span></div>
+    <div class="grid-wrap">
+      <div class="grid" id="grid" aria-label="마트 지도 8x8"></div>
+    </div>
+    <div class="legend">
+      <span><b style="background:#D9F2E3"></b>입구</span>
+      <span><b style="background:#FFF6D6"></b>재료 선반</span>
+      <span><b style="background:#EEDCFF"></b>함정</span>
+      <span><b style="background:#FFD6D6"></b>다이너마이트</span>
+      <span><b style="background:#8C7A66"></b>선반(못 지나감)</span>
+      <span><b style="background:#D9E8FF"></b>계산대</span>
+    </div>
+    <div class="sticker">
+      <h2>🎂 목표 케이크 (아래부터)</h2>
+      <div class="recipe" id="recipe"></div>
+      <p class="hint" style="margin:10px 0 0">물건은 집어도 사라지지 않아요. 같은 선반에서 또 집어도 돼요.</p>
+    </div>
+    <div class="sticker cart">
+      <div>
+        <h2>🛒 장바구니 (실시간 쌓기)</h2>
+        <div class="cake" id="live-cake"></div>
+      </div>
+      <div class="list" id="live-list">아직 아무것도 없음</div>
+    </div>
+  </div>
+
+  <div class="workspace-wrap">
+    <div class="sticker" style="padding:12px">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">🧩 블록 코딩 <span class="hint">왼쪽 서랍에서 블록을 끌어와 위에서 아래로 연결해요</span></h2>
+      <div style="position:relative">
+        <div id="blocklyDiv"></div>
+        <div class="ws-lock" id="ws-lock"></div>
+      </div>
+      <div class="controls" style="margin-top:10px">
+        <button class="btn red" id="btn-run">▶ 실행</button>
+        <button class="btn ghost" id="btn-stop" disabled>■ 멈춤</button>
+        <button class="btn ghost" id="btn-clear">🧹 블록 지우기</button>
+        <button class="btn ghost" id="btn-sound" title="효과음 켜기/끄기">🔊</button>
+        <label class="speed">속도 <input type="range" id="speed" min="1" max="3" value="2" step="1"><span id="speed-label">보통</span></label>
+        <span class="count" id="block-count">블록 0개</span>
+      </div>
+    </div>
+    <details class="help sticker">
+      <summary>블록 설명과 규칙</summary>
+      <ul>
+        <li><b>앞으로 가기</b> — 보는 방향으로 한 칸. 선반(벽)이면 "쿵!" 하고 그 자리에 있어요.</li>
+        <li><b>왼쪽/오른쪽으로 돌기</b> — 제자리에서 90도 회전.</li>
+        <li><b>앞에 있는 물건 집기</b> — 바로 앞 칸에 물건이 있으면 장바구니에 넣어요. 없으면 허공을 집어요.</li>
+        <li><b>N번 반복하기</b> — 안에 넣은 블록을 N번 실행.</li>
+        <li><b>만약 ~라면</b> — 앞에 벽이 있다면 / 없다면, 마지막으로 집은 게 빵이라면 / 생크림이라면.</li>
+        <li>다이너마이트를 집으면 바로 폭발, 계산대에 들어가면 장보기 끝.</li>
+        <li>점수: 정상 재료 +50, 순서 오류 −10, 이상한 재료 −20, 다이너마이트 −100. 같은 점수면 블록이 적은 쪽이 위.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- ============ 장면 4: 결과 ============ -->
+<section id="scene-result" class="result hidden">
+  <div class="panel">
+    <div class="sticker verdict">
+      <div class="big" id="res-emoji">🎉</div>
+      <h2 id="res-title">완벽한 케이크!</h2>
+      <p id="res-sub">효도 성공! 감동의 눈물!</p>
+      <div id="res-badge"></div>
+    </div>
+    <div class="sticker cakebox">
+      <div class="cake big" id="res-cake" style="max-width:320px"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="sticker">
+      <div class="score"><span id="res-score">0</span><small> 점</small></div>
+      <div class="stats">
+        <div class="stat"><b id="res-blocks">0</b><span>블록 수</span></div>
+        <div class="stat"><b id="res-actions">0</b><span>동작 수</span></div>
+        <div class="stat"><b id="res-traps">0</b><span>이상한 재료</span></div>
+        <div class="stat"><b id="res-bumps">0</b><span>벽에 쿵</span></div>
+      </div>
+      <div class="table-wrap" style="margin-top:12px">
+        <table class="breakdown"><thead><tr><th>층</th><th>재료</th><th>판정</th><th style="text-align:right">점수</th></tr></thead><tbody id="res-rows"></tbody></table>
+      </div>
+    </div>
+    <div class="sticker hof">
+      <h2>🏅 명예의 전당 <span class="hint">(이 기기 브라우저에만 저장)</span></h2>
+      <form id="hof-form"><input id="hof-name" maxlength="12" placeholder="이름 (12자까지)" autocomplete="off"><button class="btn blue" type="submit" id="hof-submit">등록</button></form>
+      <ol id="hof-list"></ol>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-retry">🔄 다시 도전 (블록 유지)</button>
+      <button class="btn ghost" id="btn-restart">처음으로</button>
+    </div>
+  </div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/blockly.min.js"></script>
+<script src="vendor/blockly_ko.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
