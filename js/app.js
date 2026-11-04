@@ -38,7 +38,18 @@ function failureSound(ending,run){
 var params = new URLSearchParams(location.search);
 var level = E.levelById(params.get('level')) || E.LEVELS[0];
 var locked = params.get('lock') === '1';
+var challengeMode='daily', initialChallengeId=params.get('challenge');
 var eng = new E.Engine(E.generateLevel(level));
+
+function renderChallengeModes(){
+  $('btn-mode-daily').setAttribute('aria-pressed',challengeMode==='daily'?'true':'false');
+  $('btn-mode-random').setAttribute('aria-pressed',challengeMode==='random'?'true':'false');
+  $('mission-mode-caption').textContent=challengeMode==='daily'?'모두 같은 맵·같은 순위':'매번 새로운 맵';
+}
+function selectChallengeMode(mode){
+  if(mapPending) return;
+  challengeMode=mode; initialChallengeId=null; renderChallengeModes();
+}
 
 function renderLevelPicker(){
   var box = $('level-picker'); box.innerHTML='';
@@ -64,6 +75,7 @@ function renderLevelPicker(){
   $('btn-start').textContent = '▶ '+level.name+' 시작하기';
 }
 function selectLevel(lv){
+  if(level.id!==lv.id) initialChallengeId=null;
   level = lv;
   if(ws){ ws.clear(); loadStarter(); updateCount(); }
   renderLevelPicker();
@@ -80,6 +92,33 @@ function showScene(n){
 }
 var toastTimer;
 function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove('on');},2200); }
+
+/* ---------- 재료 위치 표시 ---------- */
+var locateTimer=null, locateRevision=0, highlightedCell=null, locatingSlot=null;
+function clearItemHighlight(){
+  locateRevision++; clearTimeout(locateTimer); locateTimer=null;
+  if(highlightedCell) highlightedCell.classList.remove('item-highlight');
+  if(locatingSlot) locatingSlot.classList.remove('is-locating');
+  highlightedCell=null; locatingSlot=null;
+}
+function locateItem(item,slot){
+  if(running || mapPending || !attempt || lastResult) return;
+  clearItemHighlight();
+  for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
+    if(eng.map[r][c]!==item) continue;
+    highlightedCell=gridEl.children[r*eng.cols+c]; locatingSlot=slot;
+    highlightedCell.classList.add('item-highlight'); slot.classList.add('is-locating');
+    var revision=locateRevision;
+    locateTimer=setTimeout(function(){ if(revision===locateRevision) clearItemHighlight(); },2000);
+    return;
+  }
+}
+function updateEditorControls(){
+  var disabled=running || mapPending;
+  $('btn-zoom-out').disabled=disabled || !ws;
+  $('btn-zoom-in').disabled=disabled || !ws;
+  $('recipe').querySelectorAll('button').forEach(function(button){ button.disabled=disabled || !attempt || !!lastResult; });
+}
 
 /* ---------- 지도 ---------- */
 var gridEl = $('grid'), nauEl;
@@ -148,9 +187,11 @@ async function api(path, body){
 }
 function mapBusy(on){
   mapPending=on;
-  ['btn-start','btn-new-map','btn-retry','btn-restart'].forEach(function(id){ $(id).disabled=on; });
+  if(on) clearItemHighlight();
+  ['btn-start','btn-new-map','btn-retry','btn-restart','btn-mode-daily','btn-mode-random'].forEach(function(id){ $(id).disabled=on; });
   if(!running){ $('btn-run').disabled=on; $('btn-clear').disabled=on; }
   $('level-picker').querySelectorAll('button').forEach(function(button){ button.disabled=on; });
+  updateEditorControls();
 }
 function isCurrent(R){ return lastResult===R && R.revision===sessionRevision && attempt && R.attemptId===attempt.id; }
 function closeNameDialog(){ activeDialogResult=null; if($('name-dialog').open) $('name-dialog').close(); }
@@ -160,15 +201,21 @@ async function newMap(options){
   var request=++mapRequest, requestedLevel=level;
   mapBusy(true);
   try{
-    var data=await api('attempts',Object.assign({level:requestedLevel.id},options.retryOf?{retryOf:options.retryOf}:{}));
+    var requestBody={level:requestedLevel.id};
+    if(options.retryOf) requestBody.retryOf=options.retryOf;
+    else if(options.challengeId) requestBody.challengeId=options.challengeId;
+    else requestBody.mode=options.mode || challengeMode;
+    var data=await api('attempts',requestBody);
     if(request!==mapRequest || level!==requestedLevel) return false;
+    if(!data.challenge || !data.challenge.id) throw new Error('도전 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.');
     closeNameDialog(); sessionRevision++; hofRequest++;
     attempt=data; lastResult=null;
     eng.setLevel({id:level.id,map:data.map,shoppingList:data.shoppingList});
     $('map-label').textContent=level.name;
+    $('challenge-label').textContent=data.challenge.label;
     var hadWorkspace=!!ws;
     buildGrid(); resetRun(); showScene(2); initBlockly();
-    if(!options.retryOf && hadWorkspace){ ws.clear(); loadStarter(); updateCount(); }
+    if(!options.retryOf && !options.keepCode && hadWorkspace){ ws.clear(); loadStarter(); updateCount(); }
     Blockly.svgResize(ws); startTimer(data);
     return true;
   }catch(error){
@@ -237,22 +284,32 @@ async function animateFailure(item,run){
 /* ---------- 심부름 목록 ---------- */
 function renderShoppingList(container){
   container.replaceChildren();
+  var interactive=container===$('recipe');
   eng.shoppingList.forEach(function(key){
     var item = ITEMS[key];
     var done = eng.collected.includes(key);
-    var slot = document.createElement('div');
+    var slot = document.createElement(interactive?'button':'div');
+    if(interactive){
+      slot.type='button'; slot.setAttribute('aria-label',item.label+' 위치 찾기');
+      slot.addEventListener('click',function(){ locateItem(key,slot); });
+    }
     slot.dataset.item = key;
     slot.className = 'slot' + (done ? ' done' : '');
     slot.innerHTML = '<span class="n">'+(done ? '<span class="slot-mark" aria-hidden="true">✓</span> 담았어요' : '아직')+
       '</span><span class="e" aria-hidden="true">'+item.emoji+'</span>'+item.label;
     container.appendChild(slot);
   });
+  if(interactive){
+    var count=eng.shoppingList.filter(function(key){ return eng.collected.includes(key); }).length;
+    $('shopping-progress').textContent='담은 재료 '+count+' / '+eng.shoppingList.length;
+    updateEditorControls();
+  }
 }
 
 /* ---------- Blockly ---------- */
 var ws=null, toolboxLevel;
 function shoppingToolbox(){
-  var types = ['nau_start', 'nau_move', 'nau_left', 'nau_right', 'nau_pick', 'nau_repeat', 'nau_if', 'nau_checkout'];
+  var types = ['nau_start', 'nau_move', 'nau_left', 'nau_right', 'nau_pick', 'nau_checkout', 'nau_repeat', 'nau_if'];
   return { kind:'flyoutToolbox', contents:types.map(function(type){
     return { kind:'block', type:type, gap:12 };
   }) };
@@ -291,7 +348,7 @@ function initBlockly(){
   ws = Blockly.inject('blocklyDiv', {
     toolbox: shoppingToolbox(), renderer:'zelos', theme: theme, trashcan:false, sounds:false,
     maxInstances:{ nau_start:1, nau_checkout:1 },
-    scrollbars:true, move:{ scrollbars:true, drag:true, wheel:true }, zoom:{ controls:false, wheel:false, startScale:0.8 },
+    scrollbars:true, move:{ scrollbars:true, drag:true, wheel:true }, zoom:{ controls:false, wheel:false, pinch:true, startScale:0.9, minScale:0.65, maxScale:1.4 },
     grid:{ spacing:24, length:2, colour:'#E4D8BC', snap:false }
   });
   toolboxLevel=level.id;
@@ -339,6 +396,7 @@ function runIsCurrent(run){
   return !!run && activeRun===run && !run.cancelled && run.revision===sessionRevision && !!attempt && run.attemptId===attempt.id;
 }
 function resetRun(){
+  clearItemHighlight();
   eng.reset(); route=[[eng.r,eng.c]]; placeNau(true); nauEl.classList.remove('bump', 'picking', 'slipping', 'stuck');
   $('failure-overlay').classList.add('hidden');
   delete $('failure-overlay').dataset.ending;
@@ -374,8 +432,10 @@ function handleEvent(ev,run){
   }
 }
 function setRunningUI(on){
+  if(on) clearItemHighlight();
   running=on; $('ws-lock').classList.toggle('on', on);
   $('btn-run').disabled=on; $('btn-stop').disabled=!on; $('btn-clear').disabled=on; $('btn-new-map').disabled=on;
+  updateEditorControls();
 }
 async function runProgram(){
   if(running || mapPending || !attempt || lastResult) return;
@@ -419,6 +479,7 @@ async function runProgram(){
   openNameDialog(completed);
 }
 function goHome(){
+  clearItemHighlight();
   mapRequest++; sessionRevision++; hofRequest++; runSequence++;
   if(activeRun){
     activeRun.cancelled=true;
@@ -439,7 +500,7 @@ function goHome(){
 }
 function finishProgram(prog){
   var elapsed=freezeTimer();
-  lastResult={ attemptId:attempt.id, revision:sessionRevision, levelId:level.id,
+  lastResult={ attemptId:attempt.id, revision:sessionRevision, levelId:level.id, challenge:attempt.challenge,
     res:E.score(eng), blocks:prog.blocks, actions:eng.actions, bumps:eng.bumps,
     checkedOut:eng.checkedOut, elapsedMs:elapsed, eligible:eng.checkedOut || !!eng.failure,
     program:prog.ast, serverReady:false, registered:false, entryId:null, finishPromise:null,
@@ -453,7 +514,7 @@ var VERDICTS = {
   perfect:{ emoji:'🎉', title:'심부름 성공!' },
   incomplete:{ emoji:'📝', title:'빠뜨린 물건이 있어요' },
   wrong:{ emoji:'🛍️', title:'목록에 없는 물건을 담았어요' },
-  trapped:{ emoji:'💦', title:'함정에 걸렸어요!' },
+  trapped:{ emoji:'🎉', title:'심부름 완료!' },
   unfinished:{ emoji:'🧾', title:'장보기가 아직 안 끝났어요' }
 };
 function validProgramSize(ast){
@@ -501,8 +562,9 @@ function showResult(R){
   var ending=FAILURES[R.res.failure], v=ending || VERDICTS[R.res.verdict];
   var terminal=R.checkedOut || !!ending;
   $('res-emoji').textContent=v.emoji; $('res-title').textContent=v.title;
-  $('res-story').textContent=ending ? ending.message : '';
-  $('res-story').classList.toggle('hidden', !ending);
+  var story=ending?ending.message:R.res.verdict==='trapped'?'재료는 모두 담았어요. 함정 −'+R.res.trapPenalty+'점':'';
+  $('res-story').textContent=story;
+  $('res-story').classList.toggle('hidden', !story);
   $('res-ending-caption').textContent=ending ? ending.caption : '';
   $('res-ending-caption').classList.toggle('hidden', !ending);
   var verdict=$('res-title').closest('.verdict');
@@ -521,6 +583,7 @@ function showResult(R){
     tb.appendChild(tr);
   });
   renderShoppingList($('res-shopping-list')); renderResultRoute();
+  $('hof-context').textContent=E.levelById(R.levelId).name+' · '+R.challenge.label+' · 점수순 · 동점은 빠른 풀이순';
   $('btn-name-entry').disabled=R.registered || !R.eligible;
   $('btn-name-entry').textContent=R.registered?'등록했어요':R.eligible?'이름 남기기':'다시 도전해요';
   $('btn-retry').disabled=mapPending || !!R.finishPromise;
@@ -528,7 +591,7 @@ function showResult(R){
   showScene(3);
   if(!R.shown){
     R.shown=true;
-    if(R.res.perfect) SFX.win(); else SFX.lose();
+    if(R.res.perfect || R.res.verdict==='trapped') SFX.win(); else SFX.lose();
     tb.closest('.table-wrap').scrollTop=0; $('hof-list').scrollTop=0;
     renderHof(R);
   }
@@ -645,12 +708,12 @@ function renderHofEntries(entries,R){
     var score=document.createElement('span'); score.className='sc'; score.textContent=entry.score+'점';
     li.append(rank,person,score); ol.appendChild(li);
   });
-  $('hof-status').textContent=R.registered?(R.savedRank?'내 기록 '+R.savedRank+'위 · 점수순, 같은 점수는 빠른 풀이순':'이름을 남겼어요.'):'';
+  $('hof-status').textContent=R.registered?(R.savedRank?'내 기록 '+R.savedRank+'위':'이름을 남겼어요.'):'';
 }
 async function renderHof(R){
   var request=++hofRequest; $('hof-status').textContent='명예의 전당을 불러오고 있어요…';
   try{
-    var data=await api('leaderboard?level='+encodeURIComponent(R.levelId));
+    var data=await api('leaderboard?level='+encodeURIComponent(R.levelId)+'&challengeId='+encodeURIComponent(R.challenge.id));
     if(request!==hofRequest || !isCurrent(R)) return;
     renderHofEntries(data.entries,R);
     if(R.finishError) $('hof-status').textContent='기록을 확인하지 못했어요. 이름 남기기에서 다시 시도해 주세요.';
@@ -660,9 +723,13 @@ async function renderHof(R){
 }
 
 /* ---------- 이벤트 바인딩 ---------- */
-renderLevelPicker();
-$('btn-start').addEventListener('click',function(){ ensureAudio(); newMap(); });
-$('btn-new-map').addEventListener('click',function(){ newMap(); });
+renderLevelPicker(); renderChallengeModes(); updateEditorControls();
+$('btn-mode-daily').addEventListener('click',function(){ selectChallengeMode('daily'); });
+$('btn-mode-random').addEventListener('click',function(){ selectChallengeMode('random'); });
+$('btn-start').addEventListener('click',function(){ ensureAudio(); newMap({mode:challengeMode,challengeId:initialChallengeId}); });
+$('btn-new-map').addEventListener('click',function(){ newMap({mode:'random',keepCode:true}); });
+$('btn-zoom-out').addEventListener('click',function(){ if(ws && !running && !mapPending) ws.zoomCenter(-1); });
+$('btn-zoom-in').addEventListener('click',function(){ if(ws && !running && !mapPending) ws.zoomCenter(1); });
 $('btn-run').addEventListener('click',function(){ runProgram(); });
 $('btn-stop').addEventListener('click',function(){ if(running && !lastResult) stopRequested=true; });
 $('btn-clear').addEventListener('click',function(){ if(ws && !running && !mapPending && confirm('블록을 모두 지울까요?')){ ws.clear(); updateCount(); } });

@@ -41,7 +41,11 @@
     </div>
     <div class="sticker intro-challenge">
       <div class="intro-card-heading"><span class="intro-card-icon" aria-hidden="true">🛍️</span><div><span class="intro-card-kicker">나의 장보기 미션</span><h2>오늘의 도전</h2></div><span class="intro-ready">준비됐나요?</span></div>
-      <div class="mission"><div class="mission-title"><strong>오늘 담을 재료</strong><span>시작할 때 공개!</span></div><div class="mission-items" id="mission-items"></div></div>
+      <div class="challenge-modes" id="challenge-modes" role="group" aria-label="도전 방식">
+        <button class="challenge-mode" id="btn-mode-daily" type="button" aria-pressed="true">🏆 함께 도전</button>
+        <button class="challenge-mode" id="btn-mode-random" type="button" aria-pressed="false">🎲 랜덤 도전</button>
+      </div>
+      <div class="mission"><div class="mission-title"><strong>오늘 담을 재료</strong><span>시작할 때 공개!</span></div><div class="mission-items" id="mission-items"></div><p class="mission-mode-caption" id="mission-mode-caption">모두 같은 맵 · 같은 순위</p></div>
       <div id="level-picker-wrap" class="picker-wrap">
         <h2>어떤 모험을 떠날까요?</h2>
         <div class="level-picker" id="level-picker"></div>
@@ -56,7 +60,7 @@
 <section id="scene-play" class="play hidden">
   <div class="panel">
     <div class="map-toolbar">
-      <span id="map-label">초1–3</span>
+      <div class="map-meta"><span id="map-label">초1–3</span><span class="challenge-label" id="challenge-label"></span></div>
       <div class="map-actions">
         <button class="btn ghost" id="btn-home" type="button">🏠 홈으로</button>
         <button class="btn ghost" id="btn-new-map" type="button">🎲 새 맵</button>
@@ -74,13 +78,20 @@
       </div>
     </div>
     <div class="sticker">
-      <h2>📝 심부름 목록</h2>
+      <div class="shopping-heading"><h2>📝 심부름 목록</h2><span id="shopping-progress" role="status" aria-live="polite">담은 재료 0 / 3</span></div>
       <div class="recipe" id="recipe"></div>
     </div>
   </div>
 
   <div class="sticker workspace">
-    <h2>🧩 블록 코딩 <span class="hint" id="block-count">블록 0개</span></h2>
+    <div class="workspace-heading">
+      <h2>🧩 블록 코딩</h2>
+      <div class="workspace-tools">
+        <span class="hint" id="block-count">블록 0개</span>
+        <button class="btn ghost zoom-button" id="btn-zoom-out" type="button" aria-label="블록 축소">−</button>
+        <button class="btn ghost zoom-button" id="btn-zoom-in" type="button" aria-label="블록 확대">＋</button>
+      </div>
+    </div>
     <div class="blockly-frame">
       <div id="blocklyDiv"></div>
       <div class="ws-lock" id="ws-lock"></div>
@@ -139,6 +150,7 @@
     </section>
     <section class="sticker hof">
       <div class="hof-heading"><h2>🏅 명예의 전당</h2><button class="btn ghost" id="btn-name-entry">이름 등록</button></div>
+      <p class="hof-context" id="hof-context"></p>
       <p class="hof-status" id="hof-status" role="status"></p>
       <ol id="hof-list" tabindex="0" aria-label="순위"></ol>
     </section>

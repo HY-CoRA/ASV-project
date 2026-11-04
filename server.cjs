@@ -3,7 +3,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const Game = require('./js/engine.js');
 
@@ -17,7 +17,7 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
   '.ttf': 'font/ttf', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg'
 };
-const ENTRY_FIELDS = 'id, name, score, elapsed_ms AS elapsedMs, level, actions, blocks, verdict, ending, created_at AS createdAt';
+const ENTRY_FIELDS = 'id, name, score, elapsed_ms AS elapsedMs, level, actions, blocks, verdict, ending, created_at AS createdAt, challenge_id AS challengeId';
 const ENTRY_ORDER = 'score DESC, elapsed_ms ASC, created_at ASC, id ASC';
 
 class HttpError extends Error {
@@ -93,6 +93,8 @@ function createServer(options = {}) {
   const dbPath = options.dbPath || path.join(path.dirname(__dirname), 'work', 'asv-leaderboard.sqlite');
   if (dbPath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
   const db = new DatabaseSync(dbPath);
+  const now = options.now || Date.now;
+  const generateLevel = options.generateLevel || Game.generateLevel;
   db.exec(`
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
@@ -121,21 +123,91 @@ function createServer(options = {}) {
     );
     CREATE INDEX IF NOT EXISTS entries_ranking ON entries
       (level, score DESC, elapsed_ms ASC, created_at ASC, id ASC);
+    CREATE TABLE IF NOT EXISTS challenges (
+      id TEXT PRIMARY KEY,
+      level INTEGER NOT NULL CHECK (level IN (1, 2)),
+      map_json TEXT NOT NULL,
+      shopping_json TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('daily', 'random')),
+      label TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS daily_challenges (
+      day TEXT NOT NULL,
+      level INTEGER NOT NULL CHECK (level IN (1, 2)),
+      challenge_id TEXT NOT NULL REFERENCES challenges(id),
+      PRIMARY KEY (day, level)
+    );
   `);
-  const now = options.now || Date.now;
-  const generateLevel = options.generateLevel || Game.generateLevel;
+  function transaction(work) {
+    db.exec('BEGIN IMMEDIATE');
+    try { const result = work(); db.exec('COMMIT'); return result; }
+    catch (error) { db.exec('ROLLBACK'); throw error; }
+  }
+  const getChallenge = db.prepare('SELECT * FROM challenges WHERE id = ?');
+  const insertChallenge = db.prepare('INSERT OR IGNORE INTO challenges (id, level, map_json, shopping_json, kind, label, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  function ensureChallenge(level, map, shoppingList, createdAt = Math.trunc(now())) {
+    const mapJson = JSON.stringify(map), shoppingJson = JSON.stringify(shoppingList);
+    const id = 'map_' + createHash('sha256').update(JSON.stringify([level, map, shoppingList])).digest('hex');
+    insertChallenge.run(id, level, mapJson, shoppingJson, 'random', '랜덤 도전 · ' + id.slice(-6), createdAt);
+    return getChallenge.get(id);
+  }
+  // Existing attempts and entries retain their IDs and outcomes. Only associations are added.
+  transaction(() => {
+    for (const table of ['attempts', 'entries']) {
+      if (!db.prepare(`PRAGMA table_info(${table})`).all().some(column => column.name === 'challenge_id')) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN challenge_id TEXT REFERENCES challenges(id)`);
+      }
+    }
+    const associate = db.prepare('UPDATE attempts SET challenge_id = ? WHERE id = ?');
+    for (const attempt of db.prepare('SELECT id, level, map_json, shopping_json, started_at FROM attempts WHERE challenge_id IS NULL').all()) {
+      const challenge = ensureChallenge(attempt.level, JSON.parse(attempt.map_json), JSON.parse(attempt.shopping_json), attempt.started_at);
+      associate.run(challenge.id, attempt.id);
+    }
+    db.exec(`UPDATE entries SET challenge_id = (SELECT challenge_id FROM attempts WHERE attempts.id = entries.attempt_id)
+      WHERE challenge_id IS NULL;
+      CREATE INDEX IF NOT EXISTS entries_challenge_ranking ON entries
+        (challenge_id, score DESC, elapsed_ms ASC, created_at ASC, id ASC);`);
+  });
   const getAttempt = db.prepare('SELECT * FROM attempts WHERE id = ?');
   const getEntry = db.prepare(`SELECT ${ENTRY_FIELDS} FROM entries WHERE attempt_id = ?`);
-  const topEntries = db.prepare(`SELECT ${ENTRY_FIELDS} FROM entries WHERE level = ? ORDER BY ${ENTRY_ORDER} LIMIT 10`);
-  const totalEntries = db.prepare('SELECT COUNT(*) AS total FROM entries WHERE level = ?');
-  const rankEntry = db.prepare(`SELECT COUNT(*) + 1 AS rank FROM entries WHERE level = ? AND (
+  const topEntries = db.prepare(`SELECT ${ENTRY_FIELDS} FROM entries WHERE challenge_id = ? ORDER BY ${ENTRY_ORDER} LIMIT 10`);
+  const totalEntries = db.prepare('SELECT COUNT(*) AS total FROM entries WHERE challenge_id = ?');
+  const rankEntry = db.prepare(`SELECT COUNT(*) + 1 AS rank FROM entries WHERE challenge_id = ? AND (
     score > ? OR (score = ? AND elapsed_ms < ?) OR
     (score = ? AND elapsed_ms = ? AND created_at < ?) OR
     (score = ? AND elapsed_ms = ? AND created_at = ? AND id < ?)
   )`);
-  const insertAttempt = db.prepare('INSERT INTO attempts (id, level, map_json, shopping_json, started_at, elapsed_base_ms) VALUES (?, ?, ?, ?, ?, ?)');
+  const insertAttempt = db.prepare('INSERT INTO attempts (id, level, map_json, shopping_json, started_at, elapsed_base_ms, challenge_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const saveOutcome = db.prepare('UPDATE attempts SET outcome_json = ? WHERE id = ? AND outcome_json IS NULL');
-  const insertEntry = db.prepare('INSERT OR IGNORE INTO entries (attempt_id, name, score, elapsed_ms, level, actions, blocks, verdict, ending, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insertEntry = db.prepare('INSERT OR IGNORE INTO entries (attempt_id, name, score, elapsed_ms, level, actions, blocks, verdict, ending, created_at, challenge_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const findDaily = db.prepare('SELECT challenges.* FROM daily_challenges JOIN challenges ON challenges.id = daily_challenges.challenge_id WHERE day = ? AND daily_challenges.level = ?');
+  const insertDaily = db.prepare('INSERT INTO daily_challenges (day, level, challenge_id) VALUES (?, ?, ?)');
+  const markDaily = db.prepare("UPDATE challenges SET kind = 'daily', label = ? WHERE id = ?");
+
+  function challengeMetadata(challenge) {
+    return { id: challenge.id, kind: challenge.kind, label: challenge.label };
+  }
+  function challengeById(id, level) {
+    if (typeof id !== 'string' || !id || id.length > 100) throw new HttpError(400, '도전 ID를 확인해주세요.');
+    const challenge = getChallenge.get(id);
+    if (!challenge) throw new HttpError(404, '이 공통 지도를 찾을 수 없습니다.');
+    if (challenge.level !== level) throw new HttpError(400, '이 지도의 난이도와 선택한 난이도가 다릅니다.');
+    return challenge;
+  }
+  function dailyChallenge(level) {
+    const day = new Date(Math.trunc(now()) + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    // Keep the first map for each Korean calendar day, even with multiple server processes.
+    return transaction(() => {
+      const existing = findDaily.get(day, level);
+      if (existing) return existing;
+      const generated = generateLevel(level);
+      const challenge = ensureChallenge(level, generated.map, generated.shoppingList);
+      markDaily.run(day + ' 오늘의 도전', challenge.id);
+      insertDaily.run(day, level, challenge.id);
+      return getChallenge.get(challenge.id);
+    });
+  }
 
   function attemptById(id) {
     const attempt = getAttempt.get(id);
@@ -160,28 +232,36 @@ function createServer(options = {}) {
     if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
       const rawLevel = url.searchParams.get('level');
       const level = requireLevel(rawLevel === null ? 1 : rawLevel === '1' ? 1 : rawLevel === '2' ? 2 : null);
-      json(res, 200, { entries: topEntries.all(level), total: totalEntries.get(level).total });
+      const challengeId = url.searchParams.get('challengeId');
+      const challenge = challengeId === null ? dailyChallenge(level) : challengeById(challengeId, level);
+      json(res, 200, { challenge: challengeMetadata(challenge), entries: topEntries.all(challenge.id), total: totalEntries.get(challenge.id).total });
       return;
     }
     if (url.pathname === '/api/attempts' && req.method === 'POST') {
       const body = await readJson(req);
       const level = requireLevel(body.level);
-      let map, shoppingList, elapsedBaseMs = 0;
+      const mode = body.mode === undefined ? 'random' : body.mode;
+      if (!['daily', 'random'].includes(mode)) throw new HttpError(400, '도전 종류를 확인해주세요.');
+      if (body.retryOf !== undefined && body.challengeId !== undefined) throw new HttpError(400, '재도전과 공통 지도 중 하나만 선택해주세요.');
+      let challenge, elapsedBaseMs = 0;
       if (body.retryOf !== undefined) {
         if (typeof body.retryOf !== 'string') throw new HttpError(400, '다시 도전할 기록을 확인해주세요.');
         const previous = attemptById(body.retryOf);
         if (previous.level !== level || !previous.outcome_json) throw new HttpError(409, '완료한 같은 난이도의 도전만 이어갈 수 있습니다.');
-        map = JSON.parse(previous.map_json);
-        shoppingList = JSON.parse(previous.shopping_json);
+        challenge = challengeById(previous.challenge_id, level);
         elapsedBaseMs = JSON.parse(previous.outcome_json).elapsedMs;
+      } else if (body.challengeId !== undefined) {
+        challenge = challengeById(body.challengeId, level);
+      } else if (mode === 'daily') {
+        challenge = dailyChallenge(level);
       } else {
         const generated = generateLevel(level);
-        map = generated.map;
-        shoppingList = generated.shoppingList;
+        challenge = ensureChallenge(level, generated.map, generated.shoppingList);
       }
+      const map = JSON.parse(challenge.map_json), shoppingList = JSON.parse(challenge.shopping_json);
       const id = randomUUID(), startedAt = Math.trunc(now());
-      insertAttempt.run(id, level, JSON.stringify(map), JSON.stringify(shoppingList), startedAt, elapsedBaseMs);
-      json(res, 201, { id, level, map, shoppingList, startedAt, serverNow: Math.trunc(now()), elapsedBaseMs });
+      insertAttempt.run(id, level, challenge.map_json, challenge.shopping_json, startedAt, elapsedBaseMs, challenge.id);
+      json(res, 201, { id, level, map, shoppingList, startedAt, serverNow: Math.trunc(now()), elapsedBaseMs, challenge: challengeMetadata(challenge) });
       return;
     }
     const match = /^\/api\/attempts\/([a-zA-Z0-9-]{1,80})\/(finish|entry)$/.exec(url.pathname);
@@ -208,11 +288,12 @@ function createServer(options = {}) {
       const name = body.name.trim().normalize('NFC');
       if (!name || Array.from(name).length > 12) throw new HttpError(400, '이름은 1~12자로 입력해주세요.');
       insertEntry.run(attempt.id, name, outcome.result.total, outcome.elapsedMs, attempt.level, outcome.actions,
-        outcome.blocks, outcome.result.verdict, outcome.result.failure || null, Math.trunc(now()));
+        outcome.blocks, outcome.result.verdict, outcome.result.failure || null, Math.trunc(now()), attempt.challenge_id);
       const entry = getEntry.get(attempt.id);
-      const rank = rankEntry.get(entry.level, entry.score, entry.score, entry.elapsedMs, entry.score, entry.elapsedMs,
+      const challenge = challengeById(attempt.challenge_id, attempt.level);
+      const rank = rankEntry.get(entry.challengeId, entry.score, entry.score, entry.elapsedMs, entry.score, entry.elapsedMs,
         entry.createdAt, entry.score, entry.elapsedMs, entry.createdAt, entry.id).rank;
-      json(res, 200, { entry, rank, entries: topEntries.all(attempt.level) });
+      json(res, 200, { challenge: challengeMetadata(challenge), entry, rank, entries: topEntries.all(challenge.id) });
       return;
     }
     throw new HttpError(404, 'API 경로를 찾을 수 없습니다.');

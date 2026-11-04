@@ -7,11 +7,15 @@ const path = require('node:path');
 const os = require('node:os');
 const { once } = require('node:events');
 const http = require('node:http');
+const { DatabaseSync } = require('node:sqlite');
+const { createHash } = require('node:crypto');
 const { createServer } = require('../server.cjs');
 const Game = require('../js/engine.js');
 
 const M = { op: 'move' }, P = { op: 'pick' }, C = { op: 'checkout' };
 const fixture = () => ({ map: [['S', '딸기', '양말']], shoppingList: ['딸기'] });
+const mapVariant = count => ({ map: [['S', '딸기', ...Array(count).fill('.'), '양말']], shoppingList: ['딸기'] });
+const mapId = (level, snapshot) => 'map_' + createHash('sha256').update(JSON.stringify([level, snapshot.map, snapshot.shoppingList])).digest('hex');
 
 function seededRandom(seed) {
   return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
@@ -334,6 +338,194 @@ test('expired attempts fail explicitly while published entries remain available'
   assert.equal((await app.enter(attempt.id, '새이름')).status, 410);
   assert.equal((await app.start({ level: 1, retryOf: attempt.id })).status, 410);
   assert.equal((await app.request('/api/leaderboard')).body.total, 1);
+});
+
+test('daily challenges persist one shared Korean-day map across concurrent clients, servers, and restart', async t => {
+  const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asv-daily-'));
+  const dbPath = path.join(dbDir, 'daily.sqlite');
+  let clock = Date.parse('2026-11-05T02:00:00.000Z'), generated = 0;
+  const options = { dbPath, now: () => clock, generateLevel: () => mapVariant(++generated) };
+  const first = await launch(t, options), second = await launch(t, options);
+  t.after(async () => { await first.close(); await second.close(); fs.rmSync(dbDir, { recursive: true, force: true }); });
+  const requests = await Promise.all(Array.from({ length: 16 }, (_, i) => (i % 2 ? first : second).start({ level: 1, mode: 'daily' })));
+  assert(requests.every(response => response.status === 201));
+  assert.equal(new Set(requests.map(response => response.body.id)).size, 16, 'Each player has an independent clock and attempt');
+  assert.equal(new Set(requests.map(response => response.body.challenge.id)).size, 1);
+  assert.equal(generated, 1, 'The first daily snapshot is generated only once');
+  const daily = requests[0].body;
+  assert.deepEqual(daily.challenge, { id: mapId(1, daily), kind: 'daily', label: '2026-11-05 오늘의 도전' });
+  assert(requests.every(response => JSON.stringify(response.body.map) === JSON.stringify(daily.map)));
+  clock += 5000;
+  await second.finish(daily.id, [M, P, C]);
+  const saved = await first.enter(daily.id, '오늘첫참가자');
+  assert.equal(saved.body.entry.challengeId, daily.challenge.id);
+  const fallback = (await second.request('/api/leaderboard?level=1')).body;
+  assert.equal(fallback.challenge.id, daily.challenge.id);
+  assert.equal(fallback.total, 1);
+  assert.equal(generated, 1);
+  const high = (await first.start({ level: 2, mode: 'daily' })).body;
+  assert.notEqual(high.challenge.id, daily.challenge.id);
+  assert.equal(generated, 2);
+  await first.close(); await second.close();
+  const restarted = await launch(t, { dbPath, now: () => clock, generateLevel: () => { throw new Error('Persisted daily maps must not be regenerated'); } });
+  t.after(async () => { await restarted.close(); fs.rmSync(dbDir, { recursive: true, force: true }); });
+  const afterRestart = (await restarted.start({ level: 1, mode: 'daily' })).body;
+  assert.deepEqual(afterRestart.map, daily.map);
+  assert.deepEqual(afterRestart.shoppingList, daily.shoppingList);
+  assert.deepEqual(afterRestart.challenge, daily.challenge);
+  assert.deepEqual((await restarted.request('/api/leaderboard?level=1')).body.entries, [saved.body.entry]);
+});
+
+test('Korean midnight changes the shared map while active and retried attempts keep their original challenge', async t => {
+  let clock = Date.parse('2026-11-05T14:59:59.000Z'), generated = 0;
+  const app = await launch(t, { now: () => clock, generateLevel: () => mapVariant(++generated) });
+  const yesterday = (await app.start({ level: 1, mode: 'daily' })).body;
+  assert(yesterday.challenge.label.startsWith('2026-11-05'));
+  clock += 1000;
+  const todayBoard = (await app.request('/api/leaderboard?level=1')).body;
+  assert(todayBoard.challenge.label.startsWith('2026-11-06'));
+  assert.notEqual(todayBoard.challenge.id, yesterday.challenge.id);
+  assert.equal(todayBoard.total, 0);
+  const finished = (await app.finish(yesterday.id, [M, P, C])).body;
+  assert.equal(finished.elapsedMs, 1000);
+  const saved = (await app.enter(yesterday.id, '자정에도전')).body;
+  assert.equal(saved.entry.challengeId, yesterday.challenge.id);
+  assert.equal(saved.challenge.id, yesterday.challenge.id);
+  assert.equal((await app.request('/api/leaderboard?level=1')).body.total, 0);
+  assert.equal((await app.request('/api/leaderboard?level=1&challengeId=' + yesterday.challenge.id)).body.total, 1);
+  clock += 60_000;
+  const retry = (await app.start({ level: 1, retryOf: yesterday.id })).body;
+  assert.equal(retry.challenge.id, yesterday.challenge.id);
+  assert.deepEqual(retry.map, yesterday.map);
+  assert.equal(retry.elapsedBaseMs, 1000);
+  assert.equal(generated, 2);
+  clock += 2000;
+  assert.equal((await app.finish(retry.id, [M, P, C])).body.elapsedMs, 3000);
+  const loaded = (await app.start({ level: 1, challengeId: yesterday.challenge.id })).body;
+  assert.equal(loaded.challenge.id, yesterday.challenge.id);
+  assert.equal(loaded.elapsedBaseMs, 0, 'A second player joining a shared challenge starts a fresh clock');
+});
+
+test('random challenges stay fresh, identical map snapshots share a bucket, and rankings never mix maps', async t => {
+  let generated = 0;
+  const app = await launch(t, { generateLevel: () => mapVariant(++generated) });
+  const daily = (await app.start({ level: 1, mode: 'daily' })).body;
+  const randomA = (await app.start({ level: 1, mode: 'random' })).body;
+  const randomB = (await app.start({ level: 1 })).body;
+  assert.equal(new Set([daily, randomA, randomB].map(attempt => attempt.challenge.id)).size, 3);
+  assert.equal(randomA.challenge.kind, 'random');
+  assert.equal(randomB.challenge.kind, 'random');
+  for (const [attempt, name, program] of [[daily, '일일참가자', [C]], [randomA, '랜덤에이', [M, P, C]], [randomB, '랜덤비', [M, P, C]]]) {
+    await app.finish(attempt.id, program);
+    const entry = (await app.enter(attempt.id, name)).body;
+    assert.equal(entry.rank, 1);
+    assert.deepEqual(entry.entries.map(row => row.name), [name]);
+  }
+  const joined = (await app.start({ level: 1, challengeId: randomA.challenge.id })).body;
+  assert.equal(generated, 3, 'A known challenge uses its stored snapshot');
+  assert.deepEqual(joined.map, randomA.map);
+  assert.deepEqual(joined.shoppingList, randomA.shoppingList);
+  assert.equal(joined.elapsedBaseMs, 0);
+  await app.finish(joined.id, [C]);
+  const joinedEntry = (await app.enter(joined.id, '동일지도참가자')).body;
+  assert.equal(joinedEntry.rank, 2, 'Only scores on this exact map affect the rank');
+  assert.deepEqual(joinedEntry.entries.map(row => row.name), ['랜덤에이', '동일지도참가자']);
+  assert.equal((await app.request('/api/leaderboard?level=1&challengeId=' + randomA.challenge.id)).body.total, 2);
+  assert.deepEqual((await app.request('/api/leaderboard?level=1')).body.entries.map(row => row.name), ['일일참가자']);
+  const identical = await launch(t);
+  const a = (await identical.start()).body, b = (await identical.start()).body;
+  assert.notEqual(a.id, b.id);
+  assert.equal(a.challenge.id, b.challenge.id);
+  const sameDaily = (await identical.start({ level: 1, mode: 'daily' })).body;
+  assert.equal(sameDaily.challenge.id, a.challenge.id, 'Identical random and daily maps share the same fair bucket');
+});
+
+test('challenge IDs, difficulty, snapshots, score, and registration association are controlled by the server', async t => {
+  const app = await launch(t, { generateLevel: level => mapVariant(level) });
+  const low = (await app.start({ level: 1, mode: 'daily' })).body;
+  const high = (await app.start({ level: 2, mode: 'daily' })).body;
+  const sameMapHigh = await launch(t);
+  const l1 = (await sameMapHigh.start({ level: 1 })).body, l2 = (await sameMapHigh.start({ level: 2 })).body;
+  assert.deepEqual(l1.map, l2.map);
+  assert.notEqual(l1.challenge.id, l2.challenge.id, 'Difficulty is part of the snapshot hash');
+  for (const mode of ['', null, 1, 'all']) assert.equal((await app.start({ level: 1, mode })).status, 400);
+  for (const id of ['', null, 1, 'x'.repeat(101)]) assert.equal((await app.start({ level: 1, challengeId: id })).status, 400);
+  assert.equal((await app.start({ level: 1, challengeId: 'unknown' })).status, 404);
+  assert.equal((await app.request('/api/leaderboard?level=1&challengeId=unknown')).status, 404);
+  assert.equal((await app.request('/api/leaderboard?level=1&challengeId=')).status, 400);
+  assert.equal((await app.start({ level: 2, challengeId: low.challenge.id })).status, 400);
+  assert.equal((await app.request('/api/leaderboard?level=1&challengeId=' + high.challenge.id)).status, 400);
+  assert.equal((await app.start({ level: 1, retryOf: low.id, challengeId: low.challenge.id })).status, 400);
+  const loaded = (await app.start({ level: 1, challengeId: low.challenge.id, map: [['S']], shoppingList: [], startedAt: 0 })).body;
+  assert.deepEqual(loaded.map, low.map);
+  assert.deepEqual(loaded.shoppingList, low.shoppingList);
+  assert.equal(loaded.startedAt, 1_000_000);
+  await app.finish(loaded.id, [M, P, C], { challengeId: high.challenge.id, score: 99999, elapsedMs: 0 });
+  const saved = (await app.request('/api/attempts/' + loaded.id + '/entry', { name: '정직한기록', challengeId: high.challenge.id, score: 99999 })).body;
+  assert.equal(saved.entry.challengeId, low.challenge.id);
+  assert.equal(saved.entry.score, 50);
+  assert.equal((await app.request('/api/leaderboard?level=2&challengeId=' + high.challenge.id)).body.total, 0);
+});
+
+test('legacy SQLite schema migrates additively, backfills exact-map groups, and retains all records across restart', async t => {
+  const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asv-legacy-'));
+  const dbPath = path.join(dbDir, 'legacy.sqlite');
+  const legacy = new DatabaseSync(dbPath);
+  legacy.exec(`
+    PRAGMA foreign_keys = ON;
+    CREATE TABLE attempts (id TEXT PRIMARY KEY, level INTEGER NOT NULL, map_json TEXT NOT NULL,
+      shopping_json TEXT NOT NULL, started_at INTEGER NOT NULL, elapsed_base_ms INTEGER NOT NULL DEFAULT 0, outcome_json TEXT);
+    CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, attempt_id TEXT NOT NULL UNIQUE REFERENCES attempts(id),
+      name TEXT NOT NULL, score INTEGER NOT NULL, elapsed_ms INTEGER NOT NULL, level INTEGER NOT NULL,
+      actions INTEGER NOT NULL, blocks INTEGER NOT NULL, verdict TEXT NOT NULL, ending TEXT, created_at INTEGER NOT NULL);
+  `);
+  const oldOutcome = { id: 'legacy-done', result: { total: 50, verdict: 'perfect', failure: null }, checkedOut: true,
+    actions: 3, blocks: 4, elapsedMs: 4500, eligible: true };
+  const insert = legacy.prepare('INSERT INTO attempts VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const snapshots = [fixture(), fixture(), mapVariant(2), fixture(), fixture()];
+  const ids = ['legacy-done', 'legacy-same', 'legacy-other-map', 'legacy-other-level', 'legacy-pending'];
+  for (let i = 0; i < ids.length; i++) insert.run(ids[i], i === 3 ? 2 : 1, JSON.stringify(snapshots[i].map),
+    JSON.stringify(snapshots[i].shoppingList), 1_000_000, 0, i === 4 ? null : JSON.stringify({ ...oldOutcome, id: ids[i] }));
+  const insertEntry = legacy.prepare('INSERT INTO entries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  for (let i = 0; i < 4; i++) insertEntry.run(41 + i, ids[i], '이전기록' + i, 50, 4500, i === 3 ? 2 : 1, 3, 4, 'perfect', null, 1_000_100 + i);
+  const beforeEntries = legacy.prepare('SELECT * FROM entries ORDER BY id').all().map(row => ({ ...row }));
+  const beforeAttempts = legacy.prepare('SELECT * FROM attempts ORDER BY id').all().map(row => ({ ...row }));
+  legacy.close();
+  const app = await launch(t, { dbPath, generateLevel: () => mapVariant(9) });
+  t.after(async () => { await app.close(); fs.rmSync(dbDir, { recursive: true, force: true }); });
+  assert.equal(app.server.db.prepare('SELECT COUNT(*) AS count FROM attempts').get().count, 5);
+  assert.equal(app.server.db.prepare('SELECT COUNT(*) AS count FROM entries').get().count, 4);
+  const afterEntries = app.server.db.prepare('SELECT * FROM entries ORDER BY id').all();
+  const afterAttempts = app.server.db.prepare('SELECT * FROM attempts ORDER BY id').all();
+  assert.deepEqual(afterEntries.map(({ challenge_id, ...entry }) => entry), beforeEntries);
+  assert.deepEqual(afterAttempts.map(({ challenge_id, ...attempt }) => attempt), beforeAttempts);
+  assert.equal(afterEntries[0].challenge_id, afterEntries[1].challenge_id);
+  assert.notEqual(afterEntries[0].challenge_id, afterEntries[2].challenge_id);
+  assert.notEqual(afterEntries[0].challenge_id, afterEntries[3].challenge_id);
+  assert.equal(app.server.db.prepare('SELECT COUNT(*) AS count FROM challenges').get().count, 3);
+  const oldBoard = (await app.request('/api/leaderboard?level=1&challengeId=' + mapId(1, fixture()))).body;
+  assert.deepEqual(oldBoard.entries.map(entry => entry.id), [41, 42]);
+  assert.equal(oldBoard.total, 2);
+  assert.equal((await app.request('/api/leaderboard?level=1')).body.total, 0, 'Old random maps are not mixed into the current daily board');
+  assert.deepEqual((await app.finish('legacy-done', [])).body, oldOutcome, 'Migration never rewrites immutable outcomes');
+  const retry = (await app.start({ level: 1, retryOf: 'legacy-done' })).body;
+  assert.equal(retry.challenge.id, mapId(1, fixture()));
+  assert.equal(retry.elapsedBaseMs, 4500);
+  assert.deepEqual(retry.map, fixture().map);
+  const pendingResult = (await app.finish('legacy-pending', [M, P, C])).body;
+  assert.equal(pendingResult.result.total, 50);
+  const pendingEntry = (await app.enter('legacy-pending', '새이름')).body.entry;
+  assert(pendingEntry.id > 44, 'Autoincrement IDs are preserved');
+  assert.equal(pendingEntry.challengeId, mapId(1, fixture()));
+  const migratedIds = app.server.db.prepare('SELECT id, challenge_id FROM attempts ORDER BY id').all();
+  await app.close();
+  const restarted = await launch(t, { dbPath });
+  t.after(async () => { await restarted.close(); fs.rmSync(dbDir, { recursive: true, force: true }); });
+  assert.deepEqual(restarted.server.db.prepare('SELECT id, challenge_id FROM attempts ORDER BY id').all(), migratedIds);
+  assert.equal(restarted.server.db.prepare('SELECT COUNT(*) AS count FROM entries').get().count, 5);
+  const boardAfterRestart = (await restarted.request('/api/leaderboard?level=1&challengeId=' + mapId(1, fixture()))).body;
+  assert.equal(boardAfterRestart.total, 3);
+  assert.deepEqual(boardAfterRestart.entries.map(entry => entry.name).sort(), ['이전기록0', '이전기록1', '새이름'].sort());
 });
 
 test('static server exposes game assets and rejects traversal, symlink escapes, and private files', async t => {

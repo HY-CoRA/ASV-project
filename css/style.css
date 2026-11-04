@@ -36,7 +36,7 @@ body{
   font-size:16px;
   line-height:1.5;
 }
-button{font-family:var(--display);cursor:pointer}
+button{font-family:var(--display);cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .hidden{display:none !important}
 
@@ -190,6 +190,8 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;font:18px var(--display);padding:0 2px}
 .map-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .map-toolbar .btn{min-height:44px}
+.map-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
+.challenge-label{font:13px/1.3 var(--display);color:var(--muted);overflow-wrap:anywhere}
 .failure-overlay{position:absolute;inset:0;z-index:6;display:grid;place-items:center;padding:12px;background:#1F1A1480;border-radius:12px;pointer-events:none}
 .failure-card{width:min(100%,360px);padding:20px 16px;background:#FFF8E3;color:#1F1A14;border:3px solid #1F1A14;border-radius:24px;box-shadow:6px 6px 0 #1F1A14;text-align:center;animation:event-arrive .25s ease-out}
 .event-props{display:flex;align-items:center;justify-content:space-around;font-size:32px;line-height:1;margin-bottom:8px}
@@ -232,10 +234,25 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .slot.done .slot-mark{background:#217846}
 .slot.done{color:#1F1A14}
 .slot.done .n{color:#584B3B}
+.shopping-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.shopping-heading h2{margin:0}
+#shopping-progress{font:14px var(--display);color:var(--muted)}
+#recipe .slot{min-height:60px;min-width:0;padding:5px 2px;font-size:13px;color:var(--text)}
+#recipe .slot .e{font-size:22px}
+#recipe .slot .n{font-size:11px}
+#recipe .slot:disabled{cursor:default}
+#recipe .slot:not(:disabled):active{transform:scale(.97)}
+#recipe .slot.is-locating{outline:3px solid #2F80ED;outline-offset:1px}
+.cell.item-highlight{z-index:1;background:#DBF2FF;box-shadow:inset 0 0 0 4px #2F80ED;animation:item-locate .65s ease-in-out 3}
+@keyframes item-locate{50%{box-shadow:inset 0 0 0 6px #2F80ED;background:#FFF4B7}}
 .workspace{display:flex;flex-direction:column;gap:8px;min-width:0;padding:10px}
 .workspace h2{display:flex;justify-content:space-between;align-items:center;margin:0}
+.workspace-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.workspace-tools{display:flex;align-items:center;gap:8px}
+.workspace-tools .hint{white-space:nowrap}
+.zoom-button.btn.ghost{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;font-size:27px;line-height:1;flex:none}
 .blockly-frame{position:relative;height:460px}
-#blocklyDiv{height:100%;border:3px solid var(--ink);border-radius:12px;overflow:hidden;background:#fff;position:relative}
+#blocklyDiv{height:100%;border:3px solid var(--ink);border-radius:12px;overflow:hidden;background:#fff;position:relative;touch-action:none}
 .ws-lock{position:absolute;inset:0;z-index:5;cursor:not-allowed;display:none}
 .ws-lock.on{display:block}
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -325,6 +342,7 @@ td.pts.plus{color:var(--green)}td.pts.minus{color:var(--red)}
 .hof-heading .btn{min-height:40px;font-size:13px;padding:5px 9px}
 .hof-status{font-size:13px;color:var(--muted);margin:0;flex:none}
 .hof-status:empty{display:none}
+.hof-context{font:13px/1.5 var(--display);color:var(--muted);margin:0;flex:none}
 .hof li.hof-empty{display:block;padding:16px 10px;text-align:center;color:var(--muted)}
 .hof .person{min-width:0;overflow-wrap:anywhere}
 .hof .person b{display:block;font:16px var(--display)}
@@ -653,6 +671,62 @@ td.pts.plus{color:var(--green)}td.pts.minus{color:var(--red)}
   .level-card-copy{gap:3px}
   .intro-challenge #btn-start{min-height:52px;font-size:21px;padding-top:9px;padding-bottom:9px}
   .intro-start-note{margin-top:9px}
+}
+.challenge-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.challenge-mode{min-height:48px;padding:8px;border:2px solid #A8BCAC;border-radius:12px;background:#fff;color:#283D32;font:16px var(--display)}
+.challenge-mode[aria-pressed="true"]{background:#DDF0D3;border-color:#4B7A4D;box-shadow:0 2px 0 #4B7A4D33}
+.mission-mode-caption{margin:7px 0 0;font:13px/1.35 var(--display);color:#486043}
+.controls .btn,.map-toolbar .btn,.hof-heading .btn,.name-dialog-actions .btn,.result-footer .btn{min-height:48px}
+@media (orientation:landscape) and (min-width:720px) and (max-height:650px){
+  .intro-card-heading{margin-bottom:9px}
+  .challenge-modes{margin-bottom:8px;gap:6px}
+  .intro-start .mission{margin-bottom:10px;padding:8px 10px}
+  .mission-mode-caption{margin-top:4px;font-size:12px}
+  .intro-start .level-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .intro-start .level-card{grid-template-columns:32px minmax(0,1fr);min-height:64px;padding:8px;gap:7px}
+  .intro-start .level-icon{height:32px;width:32px;font-size:23px}
+  .intro-start .level-card b{font-size:17px}
+  .intro-start .level-card-copy small{font-size:10px;white-space:normal;line-height:1.3}
+  .intro-start .level-check{display:none}
+}
+@media (orientation:landscape) and (min-width:720px) and (max-height:440px){
+  .intro-card-heading,.intro-start-note{display:none}
+  .intro-start .level-card{min-height:54px;padding:6px}
+  .intro-start .picker-wrap{margin-bottom:9px}
+  .challenge-mode{font-size:14px}
+  .mission-mode-caption{font-size:11px}
+}
+@media (max-width:719px){
+  .workspace-heading{flex-wrap:wrap}
+  .workspace-tools{margin-left:auto}
+  .map-toolbar{align-items:flex-start}
+  .challenge-modes{margin-bottom:9px}
+  .mission-mode-caption{font-size:12px;margin-top:5px}
+  .intro-start .level-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .intro-start .level-card{grid-template-columns:28px minmax(0,1fr);min-height:64px;padding:7px;gap:6px}
+  .intro-start .level-icon{width:28px;height:32px;font-size:23px}
+  .intro-start .level-card b{font-size:17px}
+  .intro-start .level-card-copy small{font-size:11px;white-space:normal;line-height:1.3}
+  .intro-start .level-check{display:none}
+}
+@media (orientation:portrait) and (min-width:720px) and (min-height:900px){
+  body{display:flex;flex-direction:column;height:100dvh}
+  .top{position:static;flex:none}
+  main{flex:1;min-height:0;overflow:auto}
+  .play{height:100%;min-height:0;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,.9fr) minmax(0,1.1fr);gap:12px;align-items:stretch}
+  .panel{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(180px,.8fr);grid-template-rows:auto minmax(0,1fr);gap:10px;min-height:0}
+  .panel>.map-toolbar{grid-column:1 / -1}
+  .panel>.grid-wrap{min-height:0;container-type:size}
+  .panel>.grid-wrap .grid{width:min(100cqw,calc(100cqh * var(--map-ratio,1)))}
+  .panel>.sticker{min-height:0;min-width:0;padding:10px;overflow:auto}
+  .panel .shopping-heading h2{font-size:18px}
+  .panel #recipe{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .panel #recipe .slot{min-height:60px}
+  .workspace{min-height:0}
+  .workspace .blockly-frame{flex:1;min-height:0;height:auto}
+  .grid{container-type:inline-size}
+  .cell,.nau{font-size:clamp(14px,6cqw,28px)}
+  .cell small{font-size:clamp(9px,2.4cqw,12px)}
 }
 @media (prefers-reduced-motion: reduce){
   *{animation:none !important;transition:none !important}
