@@ -48,21 +48,18 @@ function renderLevelPicker(){
     card.addEventListener('click', function(){ selectLevel(lv); });
     box.appendChild(card);
   });
-  var mission = $('mission-items'); mission.replaceChildren();
-  level.shoppingList.forEach(function(key){
-    var item = document.createElement('span');
-    item.textContent = ITEMS[key].emoji+' '+ITEMS[key].label;
-    mission.appendChild(item);
-  });
   $('level-label').textContent = level.name;
-  $('btn-start').textContent = '▶ '+level.name+' 시작하기';
+  $('btn-start').textContent = '▶ 시작하기';
 }
 function selectLevel(lv){
   level = lv;
   if(ws){ ws.clear(); loadStarter(); updateCount(); }
   renderLevelPicker();
 }
-if(locked){ var pk=$('level-picker-wrap'); if(pk) pk.classList.add('hidden'); }
+if(locked){
+  var pk=$('level-picker-wrap'); if(pk) pk.classList.add('hidden');
+  $('btn-level').classList.add('hidden');
+}
 
 /* ---------- 장면 전환 ---------- */
 function showScene(n){
@@ -148,7 +145,7 @@ function isCurrent(R){ return lastResult===R && R.revision===sessionRevision && 
 function closeNameDialog(){ activeDialogResult=null; if($('name-dialog').open) $('name-dialog').close(); }
 async function newMap(options){
   options=options||{};
-  if(running || mapPending) return false;
+  if(running || mapPending || returningHome) return false;
   var request=++mapRequest, requestedLevel=level;
   mapBusy(true);
   try{
@@ -225,8 +222,8 @@ function renderShoppingList(container){
     var slot = document.createElement('div');
     slot.dataset.item = key;
     slot.className = 'slot' + (done ? ' done' : '');
-    slot.innerHTML = '<span class="n">'+(done ? '<span class="slot-mark" aria-hidden="true">✓</span> 담았어요' : '아직')+
-      '</span><span class="e" aria-hidden="true">'+item.emoji+'</span>'+item.label;
+    slot.innerHTML = '<span class="e" aria-hidden="true">'+item.emoji+'</span>'+item.label+
+      '<span class="n">'+(done ? '<span class="slot-mark" aria-hidden="true">✓</span> 담았어요' : '아직')+'</span>';
     container.appendChild(slot);
   });
 }
@@ -236,7 +233,7 @@ var ws=null, toolboxLevel;
 function shoppingToolbox(){
   var types = ['nau_start', 'nau_move', 'nau_left', 'nau_right', 'nau_pick', 'nau_repeat', 'nau_if', 'nau_checkout'];
   return { kind:'flyoutToolbox', contents:types.map(function(type){
-    return { kind:'block', type:type, gap:12 };
+    return { kind:'block', type:type, gap:8 };
   }) };
 }
 function loadStarter(){ try{ Blockly.serialization.workspaces.load(level.starter, ws); }catch(e){} }
@@ -246,13 +243,13 @@ function initBlockly(){
     return;
   }
   Blockly.defineBlocksWithJsonArray([
-    { type:'nau_start', message0:'시작하기 🏁', nextStatement:null, style:'finish_blocks', tooltip:'' },
-    { type:'nau_move', message0:'앞으로 가기 🚶', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
-    { type:'nau_left', message0:'왼쪽으로 돌기 ↩️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
-    { type:'nau_right', message0:'오른쪽으로 돌기 ↪️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
-    { type:'nau_pick', message0:'서 있는 물건 집기 ✋', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'' },
-    { type:'nau_checkout', message0:'종료하기 🧾', previousStatement:null, style:'finish_blocks', tooltip:'' },
-    { type:'nau_repeat', message0:'%1 번 반복하기 🔁', args0:[{ type:'field_number', name:'TIMES', value:3, min:1, max:20, precision:1 }],
+    { type:'nau_start', message0:'시작하기', nextStatement:null, style:'finish_blocks', tooltip:'' },
+    { type:'nau_move', message0:'앞으로 가기', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
+    { type:'nau_left', message0:'왼쪽으로 돌기', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
+    { type:'nau_right', message0:'오른쪽으로 돌기', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
+    { type:'nau_pick', message0:'서 있는 물건 집기', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'' },
+    { type:'nau_checkout', message0:'종료하기', previousStatement:null, style:'finish_blocks', tooltip:'' },
+    { type:'nau_repeat', message0:'%1 번 반복하기', args0:[{ type:'field_number', name:'TIMES', value:3, min:1, max:20, precision:1 }],
       message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'' },
     { type:'nau_if', message0:'만약 %1', args0:[{ type:'field_dropdown', name:'COND', options:[
         ['앞에 벽이 있다면','WALL'], ['앞에 벽이 없다면','NOWALL'] ] }],
@@ -267,14 +264,15 @@ function initBlockly(){
       loop_blocks:   { colourPrimary:'#F29E1F', colourSecondary:'#F8CF8D', colourTertiary:'#C27C12' },
       logic_blocks:  { colourPrimary:'#7B61FF', colourSecondary:'#BDB0FF', colourTertiary:'#5A44C9' }
     },
-    componentStyles: { workspaceBackgroundColour:'#FFFDF5', flyoutBackgroundColour:'#F3E9D2', flyoutOpacity:1, scrollbarColour:'#C9B99A', insertionMarkerColour:'#1F1A14', insertionMarkerOpacity:0.3 },
-    fontStyle: { family:"'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif", weight:'normal', size:13 }
+    componentStyles: { workspaceBackgroundColour:'#FFFFFF', flyoutBackgroundColour:'#F9F9F9', flyoutOpacity:1, scrollbarColour:'#C7C7C7', insertionMarkerColour:'#23262D', insertionMarkerOpacity:0.3 },
+    fontStyle: { family:"'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif", weight:'bold', size:15 }
   });
+  Blockly.Scrollbar.scrollbarThickness = 12;
   ws = Blockly.inject('blocklyDiv', {
     toolbox: shoppingToolbox(), renderer:'zelos', theme: theme, trashcan:false, sounds:false,
     maxInstances:{ nau_start:1, nau_checkout:1 },
-    scrollbars:true, move:{ scrollbars:true, drag:true, wheel:true }, zoom:{ controls:false, wheel:false, startScale:0.8 },
-    grid:{ spacing:24, length:2, colour:'#E4D8BC', snap:false }
+    scrollbars:true, move:{ scrollbars:true, drag:true, wheel:true }, zoom:{ controls:false, wheel:false, startScale:0.75 },
+    grid:{ spacing:0, length:0, snap:false }
   });
   toolboxLevel=level.id;
   loadStarter();
@@ -305,7 +303,7 @@ function readProgram(){
 function updateCount(){ if(!ws) return; $('block-count').textContent='블록 '+ws.getAllBlocks(false).length+'개'; }
 
 /* ---------- 실행 ---------- */
-var running=false, stopRequested=false, lastResult=null, route=[];
+var running=false, stopRequested=false, lastResult=null, route=[], runTask=null, returningHome=false;
 var STEP_DELAY_MS = 380;
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function resetRun(){
@@ -344,7 +342,7 @@ function setRunningUI(on){
   $('btn-run').disabled=on; $('btn-stop').disabled=!on; $('btn-clear').disabled=on; $('btn-new-map').disabled=on;
 }
 async function runProgram(){
-  if(running || mapPending || !attempt || lastResult) return;
+  if(running || mapPending || returningHome || !attempt || lastResult) return;
   ensureAudio();
   var prog = readProgram();
   if(!prog.start){ toast('시작하기 블록을 놓아주세요'); return; }
@@ -369,7 +367,7 @@ async function runProgram(){
   if(stopRequested && !completed) return;
   if(eng.overflow) toast('동작 한도에 도달했어요');
   if(!completed) completed=finishProgram(prog);
-  openNameDialog(completed);
+  if(isCurrent(completed)) openNameDialog(completed);
 }
 function finishProgram(prog){
   var elapsed=freezeTimer();
@@ -596,8 +594,11 @@ async function renderHof(R){
 /* ---------- 이벤트 바인딩 ---------- */
 renderLevelPicker();
 $('btn-start').addEventListener('click',function(){ ensureAudio(); newMap(); });
+$('zoom-in').addEventListener('click', function(){ if(ws) ws.zoomCenter(1); });
+$('zoom-out').addEventListener('click', function(){ if(ws) ws.zoomCenter(-1); });
+$('zoom-reset').addEventListener('click', function(){ if(ws){ ws.setScale(0.75); ws.scrollCenter(); } });
 $('btn-new-map').addEventListener('click',function(){ newMap(); });
-$('btn-run').addEventListener('click',function(){ runProgram(); });
+$('btn-run').addEventListener('click',function(){ if(!running) runTask=runProgram(); });
 $('btn-stop').addEventListener('click',function(){ if(running && !lastResult) stopRequested=true; });
 $('btn-clear').addEventListener('click',function(){ if(ws && !running && !mapPending && confirm('블록을 모두 지울까요?')){ ws.clear(); updateCount(); } });
 $('btn-retry').addEventListener('click',async function(){
@@ -608,10 +609,23 @@ $('btn-retry').addEventListener('click',async function(){
     if(isCurrent(R)) await newMap({retryOf:R.attemptId});
   }catch(error){ if(isCurrent(R)) toast(error.message); }
 });
-$('btn-restart').addEventListener('click',function(){
-  if(running || mapPending) return;
-  closeNameDialog(); freezeTimer(); sessionRevision++; hofRequest++; attempt=null; lastResult=null;
+async function returnHome(){
+  if(returningHome) return;
+  returningHome=true; stopRequested=true; mapRequest++; sessionRevision++; hofRequest++;
+  freezeTimer(); closeNameDialog();
+  try{ await runTask; }finally{
+    attempt=null; lastResult=null; mapBusy(false); closeNameDialog();
+    returningHome=false;
+  }
   showScene(1); if(ws){ ws.clear(); loadStarter(); updateCount(); }
+  $('btn-start').focus();
+}
+$('btn-home').addEventListener('click',returnHome);
+$('btn-restart').addEventListener('click',returnHome);
+$('btn-level').addEventListener('click',async function(){
+  await returnHome();
+  var selected=$('level-picker').querySelector('[aria-pressed="true"]');
+  if(selected) selected.focus();
 });
 $('btn-name-entry').addEventListener('click',function(){ if(lastResult) openNameDialog(lastResult); });
 $('name-form').addEventListener('submit',submitName);

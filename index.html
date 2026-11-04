@@ -7,11 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20261105-editor">
 </head>
 <body>
 <header class="top">
-  <div class="brand">🛒 나우의 심부름 장보기 <span class="hint" id="level-label"></span></div>
+  <button type="button" class="brand" id="btn-home" aria-label="나우의 심부름 장보기 첫 화면으로">🛒 나우의 심부름 장보기 <span class="hint" id="level-label"></span></button>
   <div class="timer-wrap hidden" id="timer-wrap"><span aria-hidden="true">⏱️</span><span>풀이 시간</span><time id="solve-timer" role="timer" aria-label="풀이 시간">00:00.0</time></div>
 </header>
 
@@ -19,13 +19,17 @@
 <!-- ============ 장면 1: 인트로 ============ -->
 <section id="scene-intro" class="intro">
   <div class="intro-start">
-    <h1>심부름 장보기</h1>
-    <div class="mission"><strong>“심부름을 부탁해!”</strong><div class="mission-items" id="mission-items"></div></div>
-    <div id="level-picker-wrap" class="picker-wrap">
-      <h2>난이도 고르기</h2>
-      <div class="level-picker" id="level-picker"></div>
+    <div class="intro-art">
+      <img src="assets/shopping-pixel-title.webp" width="1672" height="941" alt="나우의 심부름 장보기. 장바구니를 들고 마트로 향하는 도트 캐릭터 나우" fetchpriority="high">
     </div>
-    <button class="btn big" id="btn-start">▶ 게임 시작하기</button>
+    <div class="intro-menu">
+    <h1 class="visually-hidden">나우의 심부름 장보기</h1>
+    <div id="level-picker-wrap" class="picker-wrap">
+      <h2 class="visually-hidden" id="level-picker-title">난이도 고르기</h2>
+      <div class="level-picker" id="level-picker" role="group" aria-labelledby="level-picker-title"></div>
+    </div>
+    <button class="btn big" id="btn-start">▶ 시작하기</button>
+    </div>
   </div>
 </section>
 
@@ -44,8 +48,8 @@
         </div>
       </div>
     </div>
-    <div class="sticker">
-      <h2>📝 심부름 목록</h2>
+    <div class="shopping-card shopping-panel">
+      <h2>심부름 목록</h2>
       <div class="recipe" id="recipe"></div>
     </div>
   </div>
@@ -54,10 +58,16 @@
     <h2>🧩 블록 코딩 <span class="hint" id="block-count">블록 0개</span></h2>
     <div class="blockly-frame">
       <div id="blocklyDiv"></div>
+      <div class="editor-zoom" role="group" aria-label="블록 화면 크기">
+        <button type="button" id="zoom-in" aria-label="확대" title="확대">+</button>
+        <button type="button" id="zoom-out" aria-label="축소" title="축소">−</button>
+        <button type="button" id="zoom-reset" aria-label="기본 크기" title="기본 크기">=</button>
+      </div>
       <div class="ws-lock" id="ws-lock"></div>
     </div>
     <div class="controls">
-      <button class="btn red" id="btn-run">▶ 실행</button>
+      <button type="button" class="btn ghost" id="btn-level">레벨 바꾸기</button>
+      <button class="btn" id="btn-run">▶ 실행</button>
       <button class="btn ghost" id="btn-stop" disabled>■ 멈춤</button>
       <button class="btn ghost" id="btn-clear">🧹 블록 지우기</button>
     </div>
@@ -92,7 +102,7 @@
         </section>
         <div class="review-details">
           <section class="shopping-card">
-            <h3>📝 심부름 목록</h3>
+            <h3>심부름 목록</h3>
             <div class="recipe" id="res-shopping-list"></div>
           </section>
           <div class="stats">
@@ -140,6 +150,6 @@
 <script src="vendor/blockly.min.js"></script>
 <script src="vendor/blockly_ko.js"></script>
 <script src="js/engine.js"></script>
-<script src="js/app.js"></script>
+<script src="js/app.js?v=20261105-editor"></script>
 </body>
 </html>
