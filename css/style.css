@@ -142,8 +142,9 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .grid-wrap .grid{width:100%}
 .grid{
   display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));
-  aspect-ratio:1;border:1px solid var(--line);
-  border-radius:12px;overflow:hidden;background:var(--floor);position:relative;
+  aspect-ratio:1;border:12px solid transparent;container-type:inline-size;
+  border-image:url('../assets/flower-frame.svg') 16 / 12px / 0 round;
+  border-radius:0;overflow:hidden;background:var(--floor);background-clip:padding-box;position:relative;
 }
 .cell{
   border:1px solid color-mix(in srgb,var(--line) 45%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -152,10 +153,37 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 }
 .cell small{font-size:9px;font-family:var(--display);color:#584B3B;line-height:1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cell .b,.nau .body,.item-flight{font-family:'Apple Color Emoji','Noto Color Emoji','Segoe UI Emoji',sans-serif;color:#1F1A14}
-.cell.wall{background:repeating-linear-gradient(135deg,var(--shelf) 0 6px,color-mix(in srgb,var(--shelf) 80%,#000) 6px 12px)}
-.cell.item{background:#FFF9E7}
-.cell.start{background:#D9F2E3}
-.cell.picked{background:#D6EEDD}
+.pixel-item{
+  display:inline-block;width:1.25em;height:1.25em;vertical-align:middle;
+  background-image:url('../assets/item-sprites.webp');background-size:400% 200%;
+  background-repeat:no-repeat;image-rendering:pixelated;
+}
+.cell .b:has(.pixel-item){line-height:0}
+.slot .pixel-item{width:1.4em;height:1.4em}
+.pixel-board{
+  display:inline-block;width:1.1em;height:1.47em;vertical-align:middle;
+  background-image:url('../assets/board-sprites.webp');background-size:400% 100%;
+  background-repeat:no-repeat;image-rendering:pixelated;
+}
+.cell{
+  background:#DBB37F url('../assets/terrain-tiles.webp') 50% 0 / 300% 100% no-repeat;
+  border:0;box-shadow:none;image-rendering:pixelated;
+}
+.cell.wall{background-position:100% 0;border-color:transparent}
+.cell.start,.cell.picked{background-position:0 0}
+.grid .cell .b{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;height:70%;line-height:0;flex-shrink:0;
+}
+.grid .cell .b .pixel-item{height:100%;width:auto;aspect-ratio:1}
+.grid .cell .b .pixel-board{height:100%;width:auto;aspect-ratio:3 / 4}
+.grid .cell.hazard .b{height:calc(100% - clamp(14px,3.5cqw,22px))}
+.grid .cell.hazard .b .pixel-board{width:94%;height:100%;aspect-ratio:auto}
+.grid .cell small{
+  font:700 clamp(10px,2.8cqw,16px)/1.1 var(--body);
+  color:#25351E;background:#FFF8E7E8;padding:1px 3px;
+  border-radius:3px;max-width:100%;flex-shrink:0;
+}
 .cell.picked .b{opacity:0}
 .cell.picked small{opacity:.35}
 .cell.picked::after{content:"✓";position:absolute;top:1px;right:2px;color:#217846;font-size:.55em;font-weight:bold}
@@ -163,17 +191,13 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
   position:absolute;width:12.5%;height:12.5%;left:0;top:0;display:flex;align-items:center;justify-content:center;
   font-size:clamp(18px,3.6vw,30px);transition:left .28s ease,top .28s ease;pointer-events:none;z-index:2;
 }
-.nau .body{display:block;transform-origin:50% 90%}
-.nau .bag{position:absolute;right:4%;bottom:8%;font-size:.48em}
-.nau .pick-hand{position:absolute;left:55%;top:45%;font-size:.64em;opacity:0;transform-origin:0 0}
+.nau .body{display:block;width:68%;height:90%;transform-origin:50% 90%;line-height:0}
+.nau .body .pixel-board{width:100%;height:100%}
 .nau .dir{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;font-size:.5em;color:var(--red);transition:transform .2s;transform:rotate(90deg)}
 .nau.bump{animation:shake .35s}
 .nau.picking .body{animation:reach-down .76s ease-in-out}
-.nau.picking .pick-hand{animation:grab .76s ease-in-out}
-.nau.picking .bag{animation:bag-bounce .76s ease-in-out}
 .nau.slipping .body{animation:slip .7s ease-in-out}
-.cell.hazard{background:repeating-linear-gradient(135deg,#FFF1C4 0 8px,#FFDC89 8px 16px)}
-.cell.hazard.triggered{background:#E0E9EA}
+.cell.hazard{background-position:0 0}
 .cell.hazard.triggered .b{opacity:.4}
 .item-flight{position:fixed;z-index:80;line-height:1;pointer-events:none;filter:drop-shadow(0 4px 3px #0003)}
 .trap-loss{position:absolute;top:-10%;color:#C3223A;font:bold .8em var(--display);text-shadow:0 1px #fff;animation:loss-rise .7s ease-out forwards}

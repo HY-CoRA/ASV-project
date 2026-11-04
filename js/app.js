@@ -2,6 +2,17 @@
 'use strict';
 var E = NauEngine, ITEMS = E.ITEMS, HAZARDS = E.HAZARDS, FAILURES = E.FAILURES;
 var $ = function(id){ return document.getElementById(id); };
+var itemSprites = ['딸기','브로콜리','바나나','사과','당근','양말','축구공','로봇'];
+function itemIcon(key){
+  var index=itemSprites.indexOf(key);
+  if(index<0) return '';
+  return '<span class="pixel-item" aria-hidden="true" style="background-position:'+
+    (index%4*100/3)+'% '+(index<4?0:100)+'%"></span>';
+}
+function boardIcon(key){
+  var index=['나우','물웅덩이','미끄럼','입구'].indexOf(key);
+  return '<span class="pixel-board" aria-hidden="true" style="background-position:'+(index*100/3)+'% 0"></span>';
+}
 
 /* ---------- 효과음 (WebAudio, 파일 없음) ---------- */
 var audio = { ctx:null };
@@ -84,15 +95,15 @@ function buildGrid(){
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var v = eng.map[r][c], d=document.createElement('div'); d.className='cell';
     if(v==='#'){ d.classList.add('wall'); }
-    else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">🚪</span><small>입구</small>'; }
-    else if(HAZARDS[v]){ d.classList.add('hazard'); d.innerHTML='<span class="b">'+HAZARDS[v].emoji+'</span><small>'+HAZARDS[v].label+'</small>'; }
-    else if(ITEMS[v]){ d.classList.add('item'); d.innerHTML='<span class="b">'+ITEMS[v].emoji+'</span><small>'+v+'</small>'; }
+    else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">'+boardIcon('입구')+'</span><small>입구</small>'; }
+    else if(HAZARDS[v]){ d.classList.add('hazard'); d.innerHTML='<span class="b">'+boardIcon(v)+'</span><small>'+HAZARDS[v].label+'</small>'; }
+    else if(ITEMS[v]){ d.classList.add('item'); d.innerHTML='<span class="b">'+itemIcon(v)+'</span><small>'+v+'</small>'; }
     d.title = v==='#'?'벽': v==='S'?'입구': ITEMS[v]? ITEMS[v].label : HAZARDS[v]? HAZARDS[v].label : '통로';
     gridEl.appendChild(d);
   }
   nauEl=document.createElement('div'); nauEl.className='nau';
   nauEl.style.width=(100/eng.cols)+'%'; nauEl.style.height=(100/eng.rows)+'%';
-  nauEl.innerHTML='<span class="body">🧒</span><span class="pick-hand" aria-hidden="true">✋</span><span class="bag" aria-hidden="true">🛍️</span><span class="dir">▲</span>'; gridEl.appendChild(nauEl);
+  nauEl.innerHTML='<span class="body">'+boardIcon('나우')+'</span><span class="dir">▲</span>'; gridEl.appendChild(nauEl);
 }
 function placeNau(instant){
   if(instant) nauEl.style.transition='none';
@@ -173,7 +184,7 @@ async function animatePick(ev){
   nauEl.classList.add('picking');
   await sleep(200);
   var from=cell.getBoundingClientRect(), to=target.getBoundingClientRect();
-  var flight=document.createElement('span'); flight.className='item-flight'; flight.textContent=item.emoji; flight.setAttribute('aria-hidden','true');
+  var flight=document.createElement('span'); flight.className='item-flight'; flight.innerHTML=itemIcon(ev.item); flight.setAttribute('aria-hidden','true');
   flight.style.left=(from.left+from.width/2)+'px'; flight.style.top=(from.top+from.height/2)+'px';
   flight.style.fontSize=Math.max(24,from.width*0.55)+'px';
   document.body.appendChild(flight); cell.classList.add('picked');
@@ -194,13 +205,13 @@ async function animatePick(ev){
   }else if(eng.shoppingList.includes(ev.item)){
     var slot=Array.from($('recipe').children).find(function(el){ return el.dataset.item===ev.item; });
     slot.classList.add('just-collected');
-  }else{ toast(item.emoji+' '+item.label+' −20'); }
+  }else{ toast(item.label+' −20'); }
 }
 async function animateFailure(item){
   var ending=FAILURES[item], overlay=$('failure-overlay');
   var props=ending.id==='socks' ? ['🫧','🧺','🫧'] : ending.id==='football' ? ['🥅','🏆','📣'] : ['🎵','🪩','🎶'];
   overlay.dataset.ending=ending.id;
-  $('event-emoji').textContent=ending.emoji;
+  $('event-emoji').innerHTML=itemIcon(item);
   $('event-title').textContent=ending.title;
   $('event-caption').textContent=ending.caption;
   overlay.querySelectorAll('.event-props span').forEach(function(el,i){ el.textContent=props[i]; });
@@ -222,7 +233,7 @@ function renderShoppingList(container){
     var slot = document.createElement('div');
     slot.dataset.item = key;
     slot.className = 'slot' + (done ? ' done' : '');
-    slot.innerHTML = '<span class="e" aria-hidden="true">'+item.emoji+'</span>'+item.label+
+    slot.innerHTML = '<span class="e" aria-hidden="true">'+itemIcon(key)+'</span>'+item.label+
       '<span class="n">'+(done ? '<span class="slot-mark" aria-hidden="true">✓</span> 담았어요' : '아직')+'</span>';
     container.appendChild(slot);
   });
@@ -409,16 +420,16 @@ function renderResultRoute(){
     var key=r+','+c, value=eng.map[r][c], cell=document.createElement('div');
     cell.className='cell';
     if(value==='#') cell.classList.add('wall');
-    else if(value==='S'){ cell.classList.add('start'); cell.innerHTML='<span class="b">🚪</span>'; }
-    else if(HAZARDS[value]){ cell.classList.add('hazard'); cell.innerHTML='<span class="b">'+HAZARDS[value].emoji+'</span>'; }
-    else if(ITEMS[value]){ cell.classList.add('item'); cell.innerHTML='<span class="b">'+ITEMS[value].emoji+'</span>'; }
+    else if(value==='S'){ cell.classList.add('start'); cell.innerHTML='<span class="b">'+boardIcon('입구')+'</span>'; }
+    else if(HAZARDS[value]){ cell.classList.add('hazard'); cell.innerHTML='<span class="b">'+boardIcon(value)+'</span>'; }
+    else if(ITEMS[value]){ cell.classList.add('item'); cell.innerHTML='<span class="b">'+itemIcon(value)+'</span>'; }
     if(visited.has(key)){ cell.classList.add('route-visited'); cell.dataset.routeStep=visited.get(key); }
     if(r===eng.sr && c===eng.sc) cell.classList.add('route-start');
     if(eng.pickedCells.has(key)) cell.classList.add('picked');
     if(eng.triggeredTraps.has(key)) cell.classList.add('triggered');
     if(r===eng.r && c===eng.c){
       cell.classList.add('route-end');
-      var marker=document.createElement('span'); marker.className='route-marker'; marker.textContent='🧒'; cell.appendChild(marker);
+      var marker=document.createElement('span'); marker.className='route-marker'; marker.innerHTML=boardIcon('나우'); cell.appendChild(marker);
     }
     cell.title=(ITEMS[value]?ITEMS[value].label:HAZARDS[value]?HAZARDS[value].label:value==='#'?'벽':value==='S'?'입구':'통로')+
       (visited.has(key)?' · 지나간 칸':'')+(eng.pickedCells.has(key)?' · 담았어요':'');
@@ -433,6 +444,8 @@ function showResult(R){
   var ending=FAILURES[R.res.failure], v=ending || VERDICTS[R.res.verdict];
   var terminal=R.checkedOut || !!ending;
   $('res-emoji').textContent=v.emoji; $('res-title').textContent=v.title;
+  if(ending) $('res-emoji').innerHTML=itemIcon(R.res.failure);
+  else if(R.res.verdict==='trapped') $('res-emoji').innerHTML=boardIcon('물웅덩이');
   $('res-story').textContent=ending ? ending.message : '';
   $('res-story').classList.toggle('hidden', !ending);
   $('res-ending-caption').textContent=ending ? ending.caption : '';
@@ -449,7 +462,7 @@ function showResult(R){
   if(!R.res.rows.length){ tb.innerHTML='<tr><td colspan="3">아무것도 담지 않았어요.</td></tr>'; }
   R.res.rows.forEach(function(row){
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+row.emoji+' '+row.label+'</td><td>'+row.verdict+'</td><td class="pts '+(row.pts>0?'plus':'minus')+'">'+(row.pts>0?'+':'')+row.pts+'</td>';
+    tr.innerHTML='<td>'+itemIcon(row.item)+' '+row.label+'</td><td>'+row.verdict+'</td><td class="pts '+(row.pts>0?'plus':'minus')+'">'+(row.pts>0?'+':'')+row.pts+'</td>';
     tb.appendChild(tr);
   });
   renderShoppingList($('res-shopping-list')); renderResultRoute();

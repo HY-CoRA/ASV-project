@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" shape-rendering="crispEdges">
+  <defs>
+    <g id="flower">
+      <path fill="#FFF3CB" d="M-2-6h4v4h4v4H2v4h-4V2h-4v-4h4z"/>
+      <path fill="#E9B74C" d="M-2-2h4v4h-4z"/>
+      <path fill="#81A979" d="M4 4h4v2H4zM6 2h2v2H6z"/>
+    </g>
+    <g id="pink">
+      <path fill="#E9B7BD" d="M-2-6h4v4h4v4H2v4h-4V2h-4v-4h4z"/>
+      <path fill="#FFF2CA" d="M-2-2h4v4h-4z"/>
+      <path fill="#81A979" d="M-8 4h4v2h-4z"/>
+    </g>
+  </defs>
+  <use href="#flower" x="8" y="8"/>
+  <use href="#pink" x="40" y="8"/>
+  <use href="#flower" x="72" y="8"/>
+  <use href="#flower" x="88" y="40"/>
+  <use href="#pink" x="88" y="72"/>
+  <use href="#flower" x="88" y="88"/>
+  <use href="#flower" x="56" y="88"/>
+  <use href="#pink" x="24" y="88"/>
+  <use href="#flower" x="8" y="72"/>
+  <use href="#pink" x="8" y="40"/>
+</svg>
