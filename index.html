@@ -32,7 +32,13 @@
 <!-- ============ 장면 2+3: 코딩 / 실행 ============ -->
 <section id="scene-play" class="play hidden">
   <div class="panel">
-    <div class="map-toolbar"><span id="map-label">초1–3</span><button class="btn ghost" id="btn-new-map">🎲 새 맵</button></div>
+    <div class="map-toolbar">
+      <span id="map-label">초1–3</span>
+      <div class="map-actions">
+        <button class="btn ghost" id="btn-home" type="button">🏠 홈으로</button>
+        <button class="btn ghost" id="btn-new-map" type="button">🎲 새 맵</button>
+      </div>
+    </div>
     <div class="grid-wrap">
       <div class="grid" id="grid" aria-label="마트 지도"></div>
       <div class="failure-overlay hidden" id="failure-overlay" role="status" aria-live="polite" aria-atomic="true">
@@ -135,7 +141,7 @@
     </div>
   </form>
 </dialog>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="vendor/blockly.min.js"></script>
 <script src="vendor/blockly_ko.js"></script>

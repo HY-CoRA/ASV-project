@@ -134,6 +134,7 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .trap-loss{position:absolute;top:-10%;color:#C3223A;font:bold .8em var(--display);text-shadow:0 1px #fff;animation:loss-rise .7s ease-out forwards}
 .slot.just-collected{animation:collected .4s ease-out}
 .map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;font:18px var(--display);padding:0 2px}
+.map-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .map-toolbar .btn{min-height:44px}
 .failure-overlay{position:absolute;inset:0;z-index:6;display:grid;place-items:center;padding:12px;background:#1F1A1480;border-radius:12px;pointer-events:none}
 .failure-card{width:min(100%,360px);padding:20px 16px;background:#FFF8E3;color:#1F1A14;border:3px solid #1F1A14;border-radius:24px;box-shadow:6px 6px 0 #1F1A14;text-align:center;animation:event-arrive .25s ease-out}

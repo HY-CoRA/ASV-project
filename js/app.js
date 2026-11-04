@@ -23,13 +23,13 @@ var SFX = {
   pick:function(){ tone(520,0.12,'triangle',0.08,780); },
   checkout:function(){ tone(1000,0.2,'sine',0.05,1400); },
   nothing:function(){ tone(260,0.1,'sine',0.04,200); },
-  win:function(){ [523,659,784,1046].forEach(function(f,i){ setTimeout(function(){tone(f,0.25,'triangle',0.08);}, i*140); }); },
-  lose:function(){ [392,330,262].forEach(function(f,i){ setTimeout(function(){tone(f,0.3,'sawtooth',0.06);}, i*220); }); }
+  win:function(){ var revision=sessionRevision; [523,659,784,1046].forEach(function(f,i){ setTimeout(function(){ if(revision===sessionRevision) tone(f,0.25,'triangle',0.08); }, i*140); }); },
+  lose:function(){ var revision=sessionRevision; [392,330,262].forEach(function(f,i){ setTimeout(function(){ if(revision===sessionRevision) tone(f,0.3,'sawtooth',0.06); }, i*220); }); }
 };
-function failureSound(id){
+function failureSound(id,run){
   var notes=id==='robot' ? [330,660,440,880] : id==='football' ? [784,988,784,1046] : [240,360,300,180];
   notes.forEach(function(f,i){ setTimeout(function(){
-    if(!stopRequested) tone(f,0.14,id==='robot'?'square':'triangle',0.05);
+    if(runIsCurrent(run) && !stopRequested) tone(f,0.14,id==='robot'?'square':'triangle',0.05);
   },i*150); });
 }
 
@@ -108,6 +108,7 @@ function placeNau(instant){
 var attempt=null, sessionRevision=0, mapRequest=0, mapPending=false;
 var timerBase=0, timerStarted=0, timerActive=false;
 var activeDialogResult=null, hofRequest=0;
+var apiControllers=new Set();
 function elapsedNow(){ return timerBase+(timerActive ? Math.max(0,performance.now()-timerStarted) : 0); }
 function formatTime(ms){
   var ticks=Math.floor(Math.max(0,Number(ms)||0)/100), minutes=Math.floor(ticks/600);
@@ -122,6 +123,7 @@ function freezeTimer(value){ timerBase=value===undefined ? elapsedNow() : Math.m
 setInterval(paintTimer,100);
 async function api(path, body){
   var response, controller=new AbortController();
+  apiControllers.add(controller);
   var timeout=setTimeout(function(){ controller.abort(); },12000);
   try{
     response=await fetch(new URL('api/'+path,location.href),{
@@ -136,7 +138,7 @@ async function api(path, body){
   }catch(error){
     if(!response || error.name==='AbortError') throw new Error('서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
     throw error;
-  }finally{ clearTimeout(timeout); }
+  }finally{ clearTimeout(timeout); apiControllers.delete(controller); }
 }
 function mapBusy(on){
   mapPending=on;
@@ -170,11 +172,13 @@ async function newMap(options){
     if(request===mapRequest) mapBusy(false);
   }
 }
-async function animatePick(ev){
-  var item = ITEMS[ev.item], cell = gridEl.children[ev.row*eng.cols+ev.col];
+async function animatePick(ev,run){
+  if(!runIsCurrent(run)) return;
+  var actor=nauEl, item = ITEMS[ev.item], cell = gridEl.children[ev.row*eng.cols+ev.col];
   var target = ev.failure ? nauEl : Array.from($('recipe').children).find(function(slot){ return slot.dataset.item===ev.item; }) || $('recipe');
-  nauEl.classList.add('picking');
+  actor.classList.add('picking');
   await sleep(200);
+  if(!runIsCurrent(run)) return;
   var from=cell.getBoundingClientRect(), to=target.getBoundingClientRect();
   var flight=document.createElement('span'); flight.className='item-flight'; flight.textContent=item.emoji; flight.setAttribute('aria-hidden','true');
   flight.style.left=(from.left+from.width/2)+'px'; flight.style.top=(from.top+from.height/2)+'px';
@@ -188,19 +192,24 @@ async function animatePick(ev){
       {transform:'translate(calc(-50% + '+dx*0.25+'px),calc(-50% + '+(Math.min(dy,0)-45)+'px)) scale(1.3)',offset:0.4,opacity:1},
       {transform:'translate(calc(-50% + '+dx+'px),calc(-50% + '+dy+'px)) scale(.5)',opacity:0}
     ],{duration:560,easing:'ease-in-out',fill:'forwards'});
+    run.animations.add(animation);
     await animation.finished.catch(function(){});
+    run.animations.delete(animation);
   }
-  flight.remove(); nauEl.classList.remove('picking');
+  flight.remove();
+  if(!runIsCurrent(run)) return;
+  actor.classList.remove('picking');
   renderShoppingList($('recipe'));
   if(ev.failure){
-    if(!stopRequested) await animateFailure(ev.failure);
+    if(!stopRequested) await animateFailure(ev.failure,run);
   }else if(eng.shoppingList.includes(ev.item)){
     var slot=Array.from($('recipe').children).find(function(el){ return el.dataset.item===ev.item; });
     slot.classList.add('just-collected');
   }else{ toast(item.emoji+' '+item.label+' −20'); }
 }
-async function animateFailure(item){
-  var ending=FAILURES[item], overlay=$('failure-overlay');
+async function animateFailure(item,run){
+  if(!runIsCurrent(run)) return;
+  var actor=nauEl, ending=FAILURES[item], overlay=$('failure-overlay');
   var props=ending.id==='socks' ? ['🫧','🧺','🫧'] : ending.id==='football' ? ['🥅','🏆','📣'] : ['🎵','🪩','🎶'];
   overlay.dataset.ending=ending.id;
   $('event-emoji').textContent=ending.emoji;
@@ -208,12 +217,15 @@ async function animateFailure(item){
   $('event-caption').textContent=ending.caption;
   overlay.querySelectorAll('.event-props span').forEach(function(el,i){ el.textContent=props[i]; });
   overlay.classList.remove('hidden');
-  nauEl.dataset.ending=ending.id;
-  failureSound(ending.id);
-  // 멈춤은 연출 중에도 동작한다. 연출이 끝나면 자동으로 결과 화면을 연다.
-  for(var i=0;i<22 && !stopRequested;i++) await sleep(80);
+  actor.dataset.ending=ending.id;
+  failureSound(ending.id,run);
+  for(var i=0;i<22 && !stopRequested;i++){
+    await sleep(80);
+    if(!runIsCurrent(run)) return;
+  }
+  if(!runIsCurrent(run)) return;
   overlay.classList.add('hidden');
-  delete nauEl.dataset.ending;
+  delete actor.dataset.ending;
 }
 
 /* ---------- 심부름 목록 ---------- */
@@ -305,9 +317,12 @@ function readProgram(){
 function updateCount(){ if(!ws) return; $('block-count').textContent='블록 '+ws.getAllBlocks(false).length+'개'; }
 
 /* ---------- 실행 ---------- */
-var running=false, stopRequested=false, lastResult=null, route=[];
+var running=false, stopRequested=false, lastResult=null, route=[], activeRun=null, runSequence=0;
 var STEP_DELAY_MS = 380;
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function runIsCurrent(run){
+  return !!run && activeRun===run && !run.cancelled && run.revision===sessionRevision && !!attempt && run.attemptId===attempt.id;
+}
 function resetRun(){
   eng.reset(); route=[[eng.r,eng.c]]; placeNau(true); nauEl.classList.remove('bump', 'picking', 'slipping');
   $('failure-overlay').classList.add('hidden');
@@ -317,7 +332,9 @@ function resetRun(){
   document.querySelectorAll('.item-flight, .trap-loss').forEach(function(el){ el.remove(); });
   renderShoppingList($('recipe'));
 }
-function handleEvent(ev){
+function handleEvent(ev,run){
+  if(!runIsCurrent(run)) return;
+  var actor=nauEl;
   switch(ev.type){
     case 'move': route.push([eng.r,eng.c]); placeNau(); SFX.step(); break;
     case 'bump': nauEl.classList.remove('bump'); void nauEl.offsetWidth; nauEl.classList.add('bump'); SFX.bump(); break;
@@ -330,12 +347,12 @@ function handleEvent(ev){
       var loss = document.createElement('span'); loss.className='trap-loss'; loss.textContent='−'+ev.penalty;
       nauEl.appendChild(loss);
       SFX.bump();
-      return sleep(700).then(function(){ loss.remove(); nauEl.classList.remove('slipping'); });
+      return sleep(700).then(function(){ loss.remove(); if(runIsCurrent(run)) actor.classList.remove('slipping'); });
     }
-    case 'pick': return animatePick(ev);
+    case 'pick': return animatePick(ev,run);
     case 'pickNothing':
       nauEl.classList.add('picking'); SFX.nothing();
-      return sleep(420).then(function(){ nauEl.classList.remove('picking'); });
+      return sleep(420).then(function(){ if(runIsCurrent(run)) actor.classList.remove('picking'); });
     case 'checkout': SFX.checkout(); break;
   }
 }
@@ -350,26 +367,61 @@ async function runProgram(){
   if(!prog.start){ toast('시작하기 블록을 놓아주세요'); return; }
   if(!prog.ast.length){ toast('시작하기 아래에 블록을 연결해주세요'); return; }
   if(!validProgramSize(prog.ast)){ toast('블록은 500개, 겹친 반복은 12단계까지 사용할 수 있어요'); return; }
+  var run={id:++runSequence, revision:sessionRevision, attemptId:attempt.id, cancelled:false, animations:new Set()};
+  activeRun=run;
+  var checkoutAttached=hasCheckout(prog.ast);
   stopRequested=false; setRunningUI(true); resetRun();
   var gen = E.interpret(prog.ast, eng), step, completed=null;
   try{ ws.highlightBlock(prog.start.id); }catch(e){}
   await sleep(300);
-  while(!stopRequested && !(step=gen.next()).done){
+  if(!runIsCurrent(run)) return;
+  while(runIsCurrent(run) && !stopRequested && !(step=gen.next()).done){
     try{ ws.highlightBlock(step.value.node.id); }catch(e){}
-    if(eng.ended){
+    if(eng.checkedOut || (eng.failure && checkoutAttached)){
       completed=finishProgram(prog);
       $('btn-stop').disabled=true;
     }
-    var motion = handleEvent(step.value.ev);
+    var motion = handleEvent(step.value.ev,run);
     var t = step.value.ev.type;
     await Promise.all([motion, sleep((t==='repeat'||t==='if')? STEP_DELAY_MS*0.5 : STEP_DELAY_MS)]);
   }
+  if(!runIsCurrent(run)) return;
   try{ ws.highlightBlock(null); }catch(e){}
-  setRunningUI(false);
-  if(stopRequested && !completed) return;
+  if(stopRequested && !completed){ setRunningUI(false); activeRun=null; return; }
   if(eng.overflow) toast('동작 한도에 도달했어요');
-  if(!completed) completed=finishProgram(prog);
+  if(!completed){
+    tone(880,0.09,'sine',0.06);
+    await sleep(140);
+    if(!runIsCurrent(run)) return;
+    tone(880,0.09,'sine',0.06);
+    resetRun(); setRunningUI(false); activeRun=null;
+    toast('미리보기 끝! 처음 위치로 돌아왔어요.');
+    return;
+  }
+  setRunningUI(false); activeRun=null;
   openNameDialog(completed);
+}
+function hasCheckout(nodes){
+  return nodes.some(function(node){ return node.op==='checkout' || (node.body && hasCheckout(node.body)); });
+}
+function goHome(){
+  mapRequest++; sessionRevision++; hofRequest++; runSequence++;
+  if(activeRun){
+    activeRun.cancelled=true;
+    activeRun.animations.forEach(function(animation){ try{ animation.cancel(); }catch(error){} });
+  }
+  activeRun=null; stopRequested=true;
+  apiControllers.forEach(function(controller){ controller.abort(); });
+  apiControllers.clear();
+  closeNameDialog(); freezeTimer(); attempt=null; lastResult=null;
+  setRunningUI(false); mapBusy(false);
+  if(nauEl) resetRun();
+  if(ws){
+    try{ ws.highlightBlock(null); }catch(error){}
+    ws.clear(); loadStarter(); updateCount();
+  }
+  clearTimeout(toastTimer); $('toast').classList.remove('on');
+  showScene(1);
 }
 function finishProgram(prog){
   var elapsed=freezeTimer();
@@ -608,11 +660,8 @@ $('btn-retry').addEventListener('click',async function(){
     if(isCurrent(R)) await newMap({retryOf:R.attemptId});
   }catch(error){ if(isCurrent(R)) toast(error.message); }
 });
-$('btn-restart').addEventListener('click',function(){
-  if(running || mapPending) return;
-  closeNameDialog(); freezeTimer(); sessionRevision++; hofRequest++; attempt=null; lastResult=null;
-  showScene(1); if(ws){ ws.clear(); loadStarter(); updateCount(); }
-});
+$('btn-home').addEventListener('click',goHome);
+$('btn-restart').addEventListener('click',goHome);
 $('btn-name-entry').addEventListener('click',function(){ if(lastResult) openNameDialog(lastResult); });
 $('name-form').addEventListener('submit',submitName);
 $('name-skip').addEventListener('click',skipNameDialog);
