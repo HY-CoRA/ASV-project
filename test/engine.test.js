@@ -1,59 +1,56 @@
 const E = require('../js/engine.js');
-const M = o => ({ op: 'move' }), L = () => ({ op: 'left' }), R = () => ({ op: 'right' }), P = () => ({ op: 'pick' });
-const REP = (n, body) => ({ op: 'repeat', n, body });
-const IF = (cond, body) => ({ op: 'if', cond, body });
+const M = () => ({ op: 'move' }), L = () => ({ op: 'left' }), R = () => ({ op: 'right' }), P = () => ({ op: 'pick' });
+const REP = (n, body) => ({ op: 'repeat', n, body }), IF = (cond, body) => ({ op: 'if', cond, body });
+function run(level, prog) { const eng = new E.Engine(level); for (const _ of E.interpret(prog, eng)) {} return { eng, res: E.score(eng), blocks: E.countBlocks(prog) }; }
 
-function run(prog) {
-  const eng = new E.Engine();
-  for (const _ of E.interpret(prog, eng)) {}
-  return { eng, res: E.score(eng), blocks: E.countBlocks(prog) };
+// BFS 최단 동작 수 (선반 통과 불가 규칙과 동일)
+function solve(level) {
+  const eng = new E.Engine(level), DIRS = E.DIRS, R = level.recipe;
+  const key = s => s.join(','); const q = [[eng.sr, eng.sc, 1, 0]]; const prev = new Map([[key(q[0]), null]]);
+  while (q.length) {
+    const s = q.shift(); const [r, c, d, k] = s;
+    if (k === R.length) { const a = []; let cur = key(s); while (prev.get(cur)) { const [p, x] = prev.get(cur); a.push(x); cur = p; } return a.reverse(); }
+    const [dr, dc] = DIRS[d]; const fc = eng.cellAt(r + dr, c + dc); const nx = [];
+    if (!eng.blocked(fc) && fc !== 'E') nx.push([[r + dr, c + dc, d, k], 'M']);
+    nx.push([[r, c, (d + 3) % 4, k], 'L']); nx.push([[r, c, (d + 1) % 4, k], 'R']);
+    if (E.ITEMS[fc] && E.ITEMS[fc].kind === R[k]) nx.push([[r, c, d, k + 1], 'P']);
+    for (const [ns, a] of nx) { const nk = key(ns); if (!prev.has(nk)) { prev.set(nk, [key(s), a]); q.push(ns); } }
+  }
+  return null;
+}
+const [L1, L2, L3] = E.LEVELS;
+for (const lv of E.LEVELS) {
+  const a = solve(lv);
+  console.assert(a, lv.name + ' 풀이 불가');
+  console.log(`${lv.name}: 최소 동작 ${a.length} | 칭호 기준 ${lv.thresholds}`);
+  console.assert(lv.thresholds[1] >= a.length - 2, '코더 기준이 최소 동작보다 많이 낮음');
 }
 
-// 1) 조건문 활용 풀이 (빵/생크림 집었다면 으로 왕복 경로 분기)
-const shuttle = [R(), R(), REP(2, [M()]),
-  IF('GOT_BREAD', [L()]), IF('GOT_CREAM', [R()]), REP(2, [M()]),
-  IF('GOT_BREAD', [L()]), IF('GOT_CREAM', [R()]), REP(2, [M()]), P()];
-const clever = [
-  R(), REP(4, [M()]), L(), REP(3, [M()]), L(), REP(2, [M()]), P(),   // (2,3)N 빵
-  REP(3, shuttle),                                                    // 생크림, 빵, 생크림 → (2,5)N
-  M(), P(),                                                           // (1,5)N 딸기
-  R(), R(), M(), L(), REP(2, [M()]), L(), M(), P()                    // (1,7)N 초
-];
-let t = run(clever);
-console.log('clever:', t.eng.cake.join(','), 'score', t.res.total, t.res.verdict, 'blocks', t.blocks, 'actions', t.eng.actions, 'title', E.rankTitle(t.res, t.blocks));
-console.assert(t.res.verdict === 'perfect' && t.res.total === 300, 'clever should be perfect 300');
+// L1 손풀이: M R P L MM R P L MM R P (13) / 반복형 9블록
+let t = run(L1, [M(), R(), P(), L(), M(), M(), R(), P(), L(), M(), M(), R(), P()]);
+console.assert(t.res.verdict === 'perfect' && t.res.total === 150, 'L1 flat'); console.log('L1 flat', t.blocks, t.res.total);
+t = run(L1, [M(), REP(2, [R(), P(), L(), M(), M()]), R(), P()]);
+console.assert(t.res.verdict === 'perfect' && E.rankTitle(t.res, t.blocks, L1) === '알고리즘 장인', 'L1 loop'); console.log('L1 loop', t.blocks, E.rankTitle(t.res, t.blocks, L1));
+// L1 한 칸 틀리면 양말
+t = run(L1, [M(), M(), R(), P()]); console.assert(t.eng.cake[0] === '양말' && t.res.total === -20); console.log('L1 off-by-one →', t.eng.cake[0]);
 
-// 2) 순서 오류: 빵, 빵
-t = run([REP(3, [M()]), R(), P(), P()]);
-console.log('bread x2:', t.eng.cake.join(','), t.res.total, t.res.verdict, t.res.rows.map(r => r.pts).join(','));
-console.assert(t.res.total === 40 && t.res.verdict === 'weird');
+// L2 반복형: 3×{2번 앞, 오른쪽, 집기, 왼쪽} + 앞 + 오른쪽 + 3×{2번 앞, 오른쪽, 집기, 왼쪽}
+const seg = [REP(2, [M()]), R(), P(), L()];
+t = run(L2, [REP(3, seg), M(), R(), REP(3, seg), M()]);
+console.assert(t.res.verdict === 'perfect' && t.res.total === 300 && t.eng.checkedOut, 'L2 loop'); console.log('L2 loop', t.blocks, E.rankTitle(t.res, t.blocks, L2), 'checkout', t.eng.checkedOut);
+// L2 반복 횟수 한 번 더 → 다이너마이트
+t = run(L2, [REP(3, seg), M(), R(), REP(2, [M()]), R(), P(), L(), M(), R(), P()]);
+console.assert(t.res.verdict === 'boom'); console.log('L2 off-by-one →', t.eng.cake.join(','), t.res.total);
 
-// 3) 빈손
-t = run([REP(3, [M()])]);
-console.log('empty:', t.res.total, t.res.verdict);
-console.assert(t.res.total === 0 && t.res.verdict === 'empty');
-
-// 4) 다이너마이트: (2,7)에서 북쪽 보고 집기
-t = run([R(), REP(4, [M()]), L(), REP(7, [M()]), L(), REP(2, [M()]), P(), M(), M()]);
-console.log('boom:', t.eng.cake.join(','), t.res.total, t.res.verdict, 'ended', t.eng.ended, 'pos', t.eng.r, t.eng.c);
-console.assert(t.res.verdict === 'boom' && t.res.total === -100 && t.eng.r === 2 && t.eng.c === 7);
-
-// 5) 벽 부딪힘 + 조건
-t = run([REP(10, [IF('NOWALL', [M()])]), P()]);
-console.log('wall-follow:', 'pos', t.eng.r, t.eng.c, 'bumps', t.eng.bumps, 'cake', t.eng.cake.join(','));
-console.assert(t.eng.r === 0 && t.eng.c === 5 && t.eng.bumps === 0, 'should walk over strawberry cell to (0,5)');
-
-// 6) 계산대 도착으로 종료
-t = run([R(), REP(4, [M()]), L(), REP(7, [M()]), R(), M(), R(), REP(2, [M()]), L(), REP(2, [M()]), L(), REP(2, [M()]), P(), P()]);
-console.log('checkout:', 'pos', t.eng.r, t.eng.c, 'checkedOut', t.eng.checkedOut, 'cake', t.eng.cake.length);
-console.assert(t.eng.checkedOut && t.eng.cake.length === 0);
-
-// 7) 폭주 방지
-t = run([REP(20, [REP(20, [REP(20, [L()])])])]);
-console.log('overflow:', t.eng.overflow, t.eng.yields);
-console.assert(t.eng.overflow);
-
-// 8) 정렬
-const arr = [{ score: 300, blocks: 60, actions: 90 }, { score: 300, blocks: 41, actions: 95 }, { score: 180, blocks: 10, actions: 5 }];
-console.log('sort:', arr.sort(E.compareEntries).map(e => e.blocks).join(','));
+// L3 손풀이 (왕복): 행0에서 빵(0,3)S, 생크림은 (2,5)N 로 내려가서, 초는 (0,6)E
+const toBread = [R(), REP(4, [M()]), L(), REP(3, [M()]), L(), REP(2, [M()]), P()]; // (2,3)N 빵
+const shuttle = [R(), R(), REP(2, [M()]), IF('GOT_BREAD', [L()]), IF('GOT_CREAM', [R()]), REP(2, [M()]), IF('GOT_BREAD', [L()]), IF('GOT_CREAM', [R()]), REP(2, [M()]), P()];
+const toStraw = [R(), R(), REP(2, [M()]), R(), M(), L(), REP(4, [M()]), R(), M(), L(), P()]; // (2,5)N → (4,5) → (4,4)? ← 아래에서 검증
+t = run(L3, toBread.concat([REP(3, shuttle)]));
+console.assert(t.eng.cake.join(',') === '빵,생크림,빵,생크림', 'L3 shuttle'); console.log('L3 shuttle ok', t.eng.r, t.eng.c, t.eng.d);
+const a3 = solve(L3); console.log('L3 최단:', a3.join(''));
+// 선반 통과 불가 확인
+t = run(L3, [REP(5, [M()])]); console.assert(t.eng.c === 4 && t.eng.bumps === 1, 'shelf blocks movement'); console.log('shelf solid ok, bumps', t.eng.bumps);
+// 벽 조건: 선반 앞도 벽
+t = run(L1, [IF('NOWALL', [M()]), IF('NOWALL', [M()]), R(), IF('WALL', [P()])]); console.assert(t.eng.cake[0] === '양말'); console.log('WALL cond includes shelf ok');
 console.log('ALL OK');

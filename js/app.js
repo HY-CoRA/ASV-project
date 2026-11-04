@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-var E = NauEngine, ITEMS = E.ITEMS, MAP = E.MAP;
+var E = NauEngine, ITEMS = E.ITEMS;
 var $ = function(id){ return document.getElementById(id); };
 
 /* ---------- 효과음 (WebAudio, 파일 없음) ---------- */
@@ -41,6 +41,32 @@ var SFX = {
   lose:function(){ [392,330,262].forEach(function(f,i){ setTimeout(function(){tone(f,0.3,'sawtooth',0.06);}, i*220); }); }
 };
 
+/* ---------- 레벨 선택 (URL ?level=N&lock=1) ---------- */
+var params = new URLSearchParams(location.search);
+var level = E.levelById(params.get('level')) || E.LEVELS[0];
+var locked = params.get('lock') === '1';
+var eng = new E.Engine(level);
+
+function renderLevelPicker(){
+  var box = $('level-picker'); box.innerHTML='';
+  E.LEVELS.forEach(function(lv){
+    var card = document.createElement('button'); card.type='button'; card.className='level-card'+(lv.id===level.id?' on':'');
+    card.setAttribute('aria-pressed', lv.id===level.id?'true':'false');
+    var recipe = lv.recipe.map(function(k){ return E.KIND_EMOJI[k].slice(0,2); }).join(' → ');
+    card.innerHTML = '<b>'+lv.name+'</b><span class="who">'+lv.who+'</span><span class="rc">'+recipe+'</span><span class="ds">'+lv.desc+'</span>';
+    card.addEventListener('click', function(){ selectLevel(lv); });
+    box.appendChild(card);
+  });
+  $('level-label').textContent = level.name;
+  $('btn-start').textContent = '▶ '+level.name.split(' · ')[0]+' 시작하기';
+}
+function selectLevel(lv){
+  level = lv; eng.setLevel(lv);
+  if(ws){ ws.clear(); loadStarter(); updateCount(); }
+  renderLevelPicker();
+}
+if(locked){ var pk=$('level-picker-wrap'); if(pk) pk.classList.add('hidden'); }
+
 /* ---------- 장면 전환 ---------- */
 function showScene(n){
   $('scene-intro').classList.toggle('hidden', n!==1);
@@ -75,30 +101,33 @@ function explode(cakeEl){
   var f=document.createElement('div'); f.className='fire'; f.textContent='💥'; cakeEl.appendChild(f);
   Array.prototype.forEach.call(cakeEl.querySelectorAll('.layer'), function(l,i){ l.style.transform='rotate('+((i%2?1:-1)*(8+i*4))+'deg) translateX('+((i%2?1:-1)*12)+'px)'; l.style.opacity='.55'; });
 }
-
-/* 인트로 히어로 케이크: 한눈에 보이는 "병맛" 예시 */
 (function(){ var h=$('hero-cake'); resetCake(h,true); ['빵','생크림','양말','벽돌','딸기'].forEach(function(i){ addLayer(h,i); }); })();
 
 /* ---------- 지도 ---------- */
 var gridEl = $('grid'), nauEl;
 function buildGrid(){
   gridEl.innerHTML='';
-  for(var r=0;r<8;r++) for(var c=0;c<8;c++){
-    var v = MAP[r][c], d=document.createElement('div'); d.className='cell';
+  gridEl.style.gridTemplateColumns='repeat('+eng.cols+',minmax(0,1fr))';
+  gridEl.style.gridTemplateRows='repeat('+eng.rows+',minmax(0,1fr))';
+  gridEl.style.aspectRatio=eng.cols+' / '+eng.rows;
+  gridEl.setAttribute('aria-label','마트 지도 '+eng.rows+'x'+eng.cols);
+  for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
+    var v = eng.map[r][c], d=document.createElement('div'); d.className='cell';
     if(v==='#'){ d.classList.add('wall'); }
-    else if(v==='S'){ d.classList.add('start'); d.innerHTML='🚪<small>입구</small>'; }
-    else if(v==='E'){ d.classList.add('end'); d.innerHTML='🛒<small>계산대</small>'; }
-    else if(ITEMS[v]){ d.classList.add(ITEMS[v].kind==='boom'?'boom': ITEMS[v].kind==='trap'?'trap':'item'); d.innerHTML=ITEMS[v].emoji+'<small>'+v+'</small>'; }
-    d.title = v==='#'?'선반': v==='S'?'입구': v==='E'?'계산대': ITEMS[v]? ITEMS[v].label : '통로';
+    else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">🚪</span><small>입구</small>'; }
+    else if(v==='E'){ d.classList.add('end'); d.innerHTML='<span class="b">🛒</span><small>계산대</small>'; }
+    else if(ITEMS[v]){ d.classList.add(ITEMS[v].kind==='boom'?'boom': ITEMS[v].kind==='trap'?'trap':'item'); d.innerHTML='<span class="b">'+ITEMS[v].emoji+'</span><small>'+v+'</small>'; }
+    d.title = v==='#'?'선반': v==='S'?'입구': v==='E'?'계산대': ITEMS[v]? ITEMS[v].label+' 선반' : '통로';
     gridEl.appendChild(d);
   }
-  nauEl=document.createElement('div'); nauEl.className='nau'; nauEl.innerHTML='🧒<span class="dir">▲</span>'; gridEl.appendChild(nauEl);
+  nauEl=document.createElement('div'); nauEl.className='nau';
+  nauEl.style.width=(100/eng.cols)+'%'; nauEl.style.height=(100/eng.rows)+'%';
+  nauEl.innerHTML='<span class="body">🧒</span><span class="dir">▲</span>'; gridEl.appendChild(nauEl);
 }
-function placeNau(eng, instant){
+function placeNau(instant){
   if(instant) nauEl.style.transition='none';
-  nauEl.style.left=(eng.c*12.5)+'%'; nauEl.style.top=(eng.r*12.5)+'%';
+  nauEl.style.left=(eng.c*100/eng.cols)+'%'; nauEl.style.top=(eng.r*100/eng.rows)+'%';
   nauEl.querySelector('.dir').style.transform='rotate('+(eng.d*90)+'deg)';
-  var over = ITEMS[MAP[eng.r][eng.c]]; nauEl.classList.toggle('over', !!over);
   if(instant){ void nauEl.offsetWidth; nauEl.style.transition=''; }
 }
 function say(text, who){ $('bubble-text').textContent=text; $('bubble-who').textContent=who||'🧒'; }
@@ -108,10 +137,9 @@ var recipeEl=$('recipe');
 function renderRecipe(cake){
   recipeEl.innerHTML='';
   var good = cake.filter(function(i){ return ITEMS[i].kind!=='trap' && ITEMS[i].kind!=='boom'; });
-  E.RECIPE.forEach(function(kind, i){
+  eng.recipe.forEach(function(kind, i){
     var s=document.createElement('div'); s.className='slot';
-    var emo = {bread:'🍞',cream:'🍦',topping:'🍓🍫',deco:'🕯️'}[kind];
-    s.innerHTML='<span class="n">'+(i+1)+'층</span><span class="e">'+emo+'</span>'+E.RECIPE_LABEL[i];
+    s.innerHTML='<span class="n">'+(i+1)+'층</span><span class="e">'+E.KIND_EMOJI[kind]+'</span>'+E.KIND_LABEL[kind];
     if(good[i]){ s.classList.add(ITEMS[good[i]].kind===kind?'done':'bad'); }
     recipeEl.appendChild(s);
   });
@@ -122,13 +150,14 @@ function renderLiveList(cake){
 
 /* ---------- Blockly ---------- */
 var ws=null;
+function loadStarter(){ try{ Blockly.serialization.workspaces.load(level.starter, ws); }catch(e){} }
 function initBlockly(){
   if(ws) return;
   Blockly.defineBlocksWithJsonArray([
     { type:'nau_move', message0:'앞으로 가기 🚶', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'보는 방향으로 한 칸 이동' },
     { type:'nau_left', message0:'왼쪽으로 돌기 ↩️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'제자리에서 왼쪽으로 90도' },
     { type:'nau_right', message0:'오른쪽으로 돌기 ↪️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'제자리에서 오른쪽으로 90도' },
-    { type:'nau_pick', message0:'앞에 있는 물건 집기 ✋', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'바로 앞 칸의 물건을 장바구니에' },
+    { type:'nau_pick', message0:'앞에 있는 물건 집기 ✋', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'바로 앞 선반의 물건을 장바구니에' },
     { type:'nau_repeat', message0:'%1 번 반복하기 🔁', args0:[{ type:'field_number', name:'TIMES', value:3, min:1, max:20, precision:1 }],
       message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'안의 블록을 N번' },
     { type:'nau_if', message0:'만약 %1', args0:[{ type:'field_dropdown', name:'COND', options:[
@@ -154,10 +183,7 @@ function initBlockly(){
     scrollbars:true, move:{ scrollbars:true, drag:true, wheel:true }, zoom:{ controls:false, wheel:false, startScale:0.8 },
     grid:{ spacing:24, length:2, colour:'#E4D8BC', snap:false }
   });
-  // 시작 예시: 3번 앞으로 → 오른쪽 → 집기 (빵 하나)
-  Blockly.serialization.workspaces.load({ blocks:{ languageVersion:0, blocks:[
-    { type:'nau_repeat', x:24, y:24, fields:{ TIMES:3 }, inputs:{ DO:{ block:{ type:'nau_move' } } },
-      next:{ block:{ type:'nau_right', next:{ block:{ type:'nau_pick' } } } } } ] } }, ws);
+  loadStarter();
   ws.addChangeListener(function(e){ if(e.isUiEvent) return; updateCount(); });
   updateCount();
   window.addEventListener('resize', function(){ Blockly.svgResize(ws); });
@@ -182,7 +208,7 @@ function readProgram(){
 function updateCount(){ if(!ws) return; $('block-count').textContent='블록 '+ws.getAllBlocks(false).length+'개'; }
 
 /* ---------- 실행 ---------- */
-var eng = new E.Engine(), running=false, stopRequested=false, lastResult=null;
+var running=false, stopRequested=false, lastResult=null;
 var SPEEDS = { 1:650, 2:380, 3:160 }, SPEED_LABEL = { 1:'느림', 2:'보통', 3:'빠름' };
 function delayMs(){ return SPEEDS[$('speed').value] || 380; }
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -192,25 +218,25 @@ var PICK_LINES = {
   '다이아몬드':'반짝반짝… 근데 케이크에 왜 넣죠?'
 };
 function resetRun(){
-  eng.reset(); placeNau(eng, true); nauEl.classList.remove('bump');
+  eng.reset(); placeNau(true); nauEl.classList.remove('bump');
   resetCake($('live-cake'), true, '장바구니가 비어 있어요'); renderRecipe([]); renderLiveList([]);
 }
 function handleEvent(ev){
   switch(ev.type){
-    case 'move': placeNau(eng); SFX.step(); if(ev.over){ say('조심조심… '+ITEMS[ev.over].emoji+' 선반 사이를 지나가요.'); } break;
-    case 'bump': nauEl.classList.remove('bump'); void nauEl.offsetWidth; nauEl.classList.add('bump'); SFX.bump(); say('쿵! 앞은 선반이에요. 못 지나가요.'); break;
-    case 'turn': placeNau(eng); SFX.turn(); break;
+    case 'move': placeNau(); SFX.step(); break;
+    case 'bump': nauEl.classList.remove('bump'); void nauEl.offsetWidth; nauEl.classList.add('bump'); SFX.bump(); say(ev.shelf? '쿵! 앞은 선반이에요. 지나가지 말고 "집기"로 꺼내요.' : '쿵! 앞은 벽이에요. 못 지나가요.'); break;
+    case 'turn': placeNau(); SFX.turn(); break;
     case 'pick': addLayer($('live-cake'), ev.item); renderRecipe(eng.cake); renderLiveList(eng.cake); SFX[ITEMS[ev.item].sound](); say(PICK_LINES[ev.item]||'집었어요!'); break;
     case 'pickNothing': SFX.nothing(); say('앞에 아무것도 없어요. 허공을 집었어요.'); break;
     case 'boom': addLayer($('live-cake'), ev.item); renderLiveList(eng.cake); explode($('live-cake')); SFX.boom(); say('펑!!! 다이너마이트였어요!!', '💥'); break;
-    case 'checkout': placeNau(eng); SFX.deco(); say('계산대 도착! 장보기 끝!', '🛒'); break;
+    case 'checkout': placeNau(); SFX.deco(); say('계산대 도착! 장보기 끝!', '🛒'); break;
     case 'repeat': say(ev.n+'번 반복 시작!'); break;
     case 'if': say('조건 확인 → '+(ev.ok?'맞아요, 안쪽 실행!':'아니에요, 건너뛰어요.')); break;
   }
 }
 function setRunningUI(on){
   running=on; $('ws-lock').classList.toggle('on', on);
-  $('btn-run').disabled=on; $('btn-stop').disabled=!on; $('btn-clear').disabled=on;
+  $('btn-run').disabled=on; $('btn-stop').disabled=!on; $('btn-clear').disabled=on; $('btn-level').disabled=on;
 }
 async function runProgram(){
   if(running) return;
@@ -233,7 +259,7 @@ async function runProgram(){
   if(stopRequested){ say('멈췄어요. 블록을 고치고 다시 실행해요.'); return; }
   if(eng.overflow) toast('동작이 너무 많아서 중간에 멈췄어요 (상한 600). 반복 횟수를 줄여보세요.');
   var blocks = ws.getAllBlocks(false).length;
-  lastResult = { res: E.score(eng), blocks: blocks, actions: eng.actions, bumps: eng.bumps, cake: eng.cake.slice(), exploded: eng.exploded };
+  lastResult = { level: level, res: E.score(eng), blocks: blocks, actions: eng.actions, bumps: eng.bumps, cake: eng.cake.slice(), exploded: eng.exploded };
   await sleep(700);
   showResult();
 }
@@ -248,9 +274,10 @@ var VERDICTS = {
 function showResult(){
   var R = lastResult, v = VERDICTS[R.res.verdict];
   $('res-emoji').textContent=v.emoji; $('res-title').textContent=v.title; $('res-sub').textContent=v.sub;
-  var title = E.rankTitle(R.res, R.blocks);
+  var title = E.rankTitle(R.res, R.blocks, R.level);
   $('res-badge').innerHTML = title? '<span class="title-badge">🏷️ 칭호: '+title+'</span>' : '';
-  $('res-score').textContent=R.res.total; $('res-blocks').textContent=R.blocks; $('res-actions').textContent=R.actions; $('res-bumps').textContent=R.bumps;
+  $('res-score').textContent=R.res.total; $('res-max').textContent='/ '+R.res.max+'점';
+  $('res-blocks').textContent=R.blocks; $('res-actions').textContent=R.actions; $('res-bumps').textContent=R.bumps;
   $('res-traps').textContent=R.cake.filter(function(i){ return ITEMS[i].kind==='trap'||ITEMS[i].kind==='boom'; }).length;
   var tb=$('res-rows'); tb.innerHTML='';
   if(!R.res.rows.length){ tb.innerHTML='<tr><td colspan="4" style="color:var(--muted)">아무것도 집지 않았어요.</td></tr>'; }
@@ -259,8 +286,8 @@ function showResult(){
     tr.innerHTML='<td>'+(i+1)+'</td><td>'+row.emoji+' '+row.label+'</td><td>'+row.verdict+'</td><td class="pts '+(row.pts>0?'plus':'minus')+'">'+(row.pts>0?'+':'')+row.pts+'</td>';
     tb.appendChild(tr);
   });
-  // 케이크 다시 쌓기 연출
   var ck=$('res-cake'); resetCake(ck, true, R.cake.length? '' : '텅 빈 접시…');
+  $('hof-level').textContent = R.level.name;
   showScene(3);
   R.cake.forEach(function(item,i){ setTimeout(function(){ addLayer(ck,item); if(ITEMS[item].kind==='boom'){ explode(ck); SFX.boom(); } else { SFX[ITEMS[item].sound](); } }, 350+i*420); });
   setTimeout(function(){ if(R.res.verdict==='perfect') SFX.win(); else if(R.res.verdict!=='boom') SFX.lose(); }, 400+R.cake.length*420);
@@ -268,10 +295,10 @@ function showResult(){
   renderHof(null);
 }
 
-/* ---------- 명예의 전당 (localStorage, 실패해도 조용히) ---------- */
-var HOF_KEY='nau_cake_hof_v1';
-function loadHof(){ try{ var s=localStorage.getItem(HOF_KEY); return s? JSON.parse(s): []; }catch(e){ return []; } }
-function saveHof(list){ try{ localStorage.setItem(HOF_KEY, JSON.stringify(list)); return true; }catch(e){ return false; } }
+/* ---------- 명예의 전당 (레벨별, localStorage) ---------- */
+function hofKey(){ return 'nau_cake_hof_v2_L'+level.id; }
+function loadHof(){ try{ var s=localStorage.getItem(hofKey()); return s? JSON.parse(s): []; }catch(e){ return []; } }
+function saveHof(list){ try{ localStorage.setItem(hofKey(), JSON.stringify(list)); return true; }catch(e){ return false; } }
 function renderHof(mine){
   var list = loadHof().sort(E.compareEntries).slice(0,10), ol=$('hof-list'); ol.innerHTML='';
   if(!list.length){ ol.innerHTML='<li style="display:block;color:var(--muted)">아직 아무도 없어요. 첫 번째로 이름을 남겨보세요.</li>'; return; }
@@ -284,17 +311,23 @@ function renderHof(mine){
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
 /* ---------- 이벤트 바인딩 ---------- */
+renderLevelPicker();
 $('btn-start').addEventListener('click', function(){
-  showScene(2); buildGrid(); resetRun(); renderRecipe([]);
+  showScene(2); buildGrid(); resetRun(); renderRecipe([]); say('블록을 조립하고 실행을 눌러요!');
   try{ initBlockly(); Blockly.svgResize(ws); }catch(e){ toast('블록 편집기를 불러오지 못했어요: '+e.message); }
 });
+$('btn-iso').addEventListener('click', function(){
+  var on = $('grid-wrap').classList.toggle('iso');
+  this.setAttribute('aria-pressed', on?'true':'false'); this.textContent = on? '🗺️ 평면 보기' : '🧊 입체 보기';
+});
+$('btn-level').addEventListener('click', function(){ showScene(1); });
 $('btn-run').addEventListener('click', function(){ runProgram(); });
 $('btn-stop').addEventListener('click', function(){ stopRequested=true; });
 $('btn-clear').addEventListener('click', function(){ if(ws && confirm('블록을 모두 지울까요?')){ ws.clear(); updateCount(); } });
 $('btn-sound').addEventListener('click', function(){ audio.on=!audio.on; this.textContent=audio.on?'🔊':'🔇'; if(audio.on){ ensureAudio(); SFX.bread(); } });
 $('speed').addEventListener('input', function(){ $('speed-label').textContent=SPEED_LABEL[this.value]; });
 $('btn-retry').addEventListener('click', function(){ showScene(2); resetRun(); say('블록을 고쳐서 다시 도전!'); Blockly.svgResize(ws); });
-$('btn-restart').addEventListener('click', function(){ showScene(1); if(ws){ ws.clear(); updateCount(); } });
+$('btn-restart').addEventListener('click', function(){ showScene(1); if(ws){ ws.clear(); loadStarter(); updateCount(); } });
 $('hof-form').addEventListener('submit', function(ev){
   ev.preventDefault();
   if(!lastResult) return;

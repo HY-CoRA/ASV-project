@@ -11,7 +11,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">🎂 코딩으로 쌓는 병맛 효도 케이크 <span class="hint">데모</span></div>
+  <div class="brand">🎂 코딩으로 쌓는 병맛 효도 케이크 <span class="hint" id="level-label"></span></div>
   <div class="steps" aria-label="진행 단계"><span id="st1" class="on">1 인트로</span><span id="st2">2 코딩·실행</span><span id="st3">3 결과</span></div>
 </header>
 
@@ -27,6 +27,10 @@
       <li>실행하면 나우가 마트를 돌며 앞에 있는 물건을 집어요.</li>
       <li>집은 순서 그대로 케이크가 쌓여요. 빵 → 생크림 → 빵 → 생크림 → 토핑 → 초 가 정답!</li>
     </ol>
+    <div id="level-picker-wrap" class="picker-wrap">
+      <h2 style="font-family:var(--display);font-weight:normal;font-size:20px;margin:0 0 8px">레벨 고르기</h2>
+      <div class="level-picker" id="level-picker"></div>
+    </div>
     <button class="btn big" id="btn-start">▶ 게임 시작하기</button>
   </div>
   <div class="hero">
@@ -40,15 +44,16 @@
 <section id="scene-play" class="play hidden">
   <div class="panel">
     <div class="bubble"><span class="who" id="bubble-who">🧒</span><span id="bubble-text">블록을 조립하고 실행을 눌러요!</span></div>
-    <div class="grid-wrap">
+    <div class="grid-wrap" id="grid-wrap">
       <div class="grid" id="grid" aria-label="마트 지도 8x8"></div>
     </div>
+    <div style="display:flex;justify-content:flex-end"><button class="btn ghost" id="btn-iso" aria-pressed="false">🧊 입체 보기</button></div>
     <div class="legend">
       <span><b style="background:#D9F2E3"></b>입구</span>
       <span><b style="background:#FFF6D6"></b>재료 선반</span>
       <span><b style="background:#EEDCFF"></b>함정</span>
       <span><b style="background:#FFD6D6"></b>다이너마이트</span>
-      <span><b style="background:#8C7A66"></b>선반(못 지나감)</span>
+      <span><b style="background:#8C7A66"></b>벽</span>
       <span><b style="background:#D9E8FF"></b>계산대</span>
     </div>
     <div class="sticker">
@@ -77,6 +82,7 @@
         <button class="btn ghost" id="btn-stop" disabled>■ 멈춤</button>
         <button class="btn ghost" id="btn-clear">🧹 블록 지우기</button>
         <button class="btn ghost" id="btn-sound" title="효과음 켜기/끄기">🔊</button>
+        <button class="btn ghost" id="btn-level">🗂️ 레벨 바꾸기</button>
         <label class="speed">속도 <input type="range" id="speed" min="1" max="3" value="2" step="1"><span id="speed-label">보통</span></label>
         <span class="count" id="block-count">블록 0개</span>
       </div>
@@ -84,7 +90,7 @@
     <details class="help sticker">
       <summary>블록 설명과 규칙</summary>
       <ul>
-        <li><b>앞으로 가기</b> — 보는 방향으로 한 칸. 선반(벽)이면 "쿵!" 하고 그 자리에 있어요.</li>
+        <li><b>앞으로 가기</b> — 보는 방향으로 한 칸. 벽이나 물건 선반이면 "쿵!" 하고 그 자리에 있어요. 선반은 지나갈 수 없고 앞에서 집어요.</li>
         <li><b>왼쪽/오른쪽으로 돌기</b> — 제자리에서 90도 회전.</li>
         <li><b>앞에 있는 물건 집기</b> — 바로 앞 칸에 물건이 있으면 장바구니에 넣어요. 없으면 허공을 집어요.</li>
         <li><b>N번 반복하기</b> — 안에 넣은 블록을 N번 실행.</li>
@@ -111,7 +117,7 @@
   </div>
   <div class="panel">
     <div class="sticker">
-      <div class="score"><span id="res-score">0</span><small> 점</small></div>
+      <div class="score"><span id="res-score">0</span><small> 점 <span id="res-max"></span></small></div>
       <div class="stats">
         <div class="stat"><b id="res-blocks">0</b><span>블록 수</span></div>
         <div class="stat"><b id="res-actions">0</b><span>동작 수</span></div>
@@ -123,7 +129,7 @@
       </div>
     </div>
     <div class="sticker hof">
-      <h2>🏅 명예의 전당 <span class="hint">(이 기기 브라우저에만 저장)</span></h2>
+      <h2>🏅 명예의 전당 <span class="hint" id="hof-level"></span> <span class="hint">(이 기기 브라우저에만 저장, 레벨별)</span></h2>
       <form id="hof-form"><input id="hof-name" maxlength="12" placeholder="이름 (12자까지)" autocomplete="off"><button class="btn blue" type="submit" id="hof-submit">등록</button></form>
       <ol id="hof-list"></ol>
     </div>
