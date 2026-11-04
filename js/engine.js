@@ -39,7 +39,7 @@ var NauEngine = (function () {
     {
       id: 1, name: '초1–3',
       shoppingList: ['딸기', '브로콜리', '사과'],
-      size: 6,
+      size: 5,
       starter: { blocks: { languageVersion: 0, blocks: [
         { type: 'nau_start', x: 24, y: 24, next: { block: { type: 'nau_move' } } }
       ] } }
@@ -109,7 +109,7 @@ var NauEngine = (function () {
 
   // 격자 위의 무작위 신장 트리: 막힌 길도 생기지만 모든 통로가 연결된다.
   function makeMaze(size, random) {
-    var side = size / 2, map = [], parent = [], edges = [], extensions = [];
+    var side = Math.ceil(size / 2), map = [], parent = [], edges = [], extensions = [];
     for (var row = 0; row < size; row++) map.push(Array(size).fill('#'));
     for (var r = 0; r < side; r++) for (var c = 0; c < side; c++) {
       var index = r * side + c;
@@ -128,10 +128,13 @@ var NauEngine = (function () {
       var a = root(edge[0]), b = root(edge[1]);
       if (a !== b) { parent[b] = a; map[edge[2]][edge[3]] = '.'; }
     });
-    for (var n = 0; n < side; n++) {
-      extensions.push([size - 1, n * 2], [n * 2, size - 1]);
+    // 짝수 크기에서는 마지막 행과 열에 통로를 더 낼 수 있다.
+    if (size % 2 === 0) {
+      for (var n = 0; n < side; n++) {
+        extensions.push([size - 1, n * 2], [n * 2, size - 1]);
+      }
+      shuffle(extensions, random).slice(0, size - 2).forEach(function (cell) { map[cell[0]][cell[1]] = '.'; });
     }
-    shuffle(extensions, random).slice(0, size - 2).forEach(function (cell) { map[cell[0]][cell[1]] = '.'; });
     map[0][0] = 'S';
     return map;
   }
@@ -143,7 +146,7 @@ var NauEngine = (function () {
     var branches = cells.filter(function (cell) { return neighbors(map, cell).length >= 3; }).length;
     if (branches < (difficult ? 4 : 2)) return [];
     var leaves = cells.filter(function (cell) {
-      return cellKey(cell) !== '0,0' && neighbors(map, cell).length === 1 && startPaths[cellKey(cell)].length - 1 >= (difficult ? 8 : 5);
+      return cellKey(cell) !== '0,0' && neighbors(map, cell).length === 1 && startPaths[cellKey(cell)].length - 1 >= (difficult ? 8 : 3);
     });
     var options = [];
     leaves.forEach(function (a, i) {
@@ -153,12 +156,18 @@ var NauEngine = (function () {
         var routeA = startA.concat(between.slice(1));
         var routeB = startB.concat(between.slice().reverse().slice(1));
         var moves = Math.min(routeA.length, routeB.length) - 1;
-        if (moves < (difficult ? 28 : 14) || Math.min(routeTurns(routeA), routeTurns(routeB)) < (difficult ? 10 : 5)) return;
+        var turnsA = routeTurns(routeA), turnsB = routeTurns(routeB);
+        if (difficult && (moves < 28 || Math.min(turnsA, turnsB) < 10)) return;
+        // 초1–3은 세 물건을 짧은 동선으로 담을 수 있는 지도를 고른다.
+        if (!difficult && !(
+          (routeA.length - 1 <= 12 && turnsA <= 4) ||
+          (routeB.length - 1 <= 12 && turnsB <= 4)
+        )) return;
         var safe = new Set(startA.concat(startB).map(cellKey));
         var sidePaths = cells.filter(function (cell) { return !safe.has(cellKey(cell)); });
         if (sidePaths.length < (difficult ? 4 : 2)) return;
         var safeTargets = cells.filter(function (cell) {
-          return safe.has(cellKey(cell)) && startPaths[cellKey(cell)].length - 1 >= (difficult ? 8 : 5);
+          return safe.has(cellKey(cell)) && startPaths[cellKey(cell)].length - 1 >= (difficult ? 8 : 3);
         });
         if (safeTargets.length < (difficult ? 5 : 3)) return;
         options.push({ a: a, b: b, sidePaths: sidePaths, cells: cells, safeTargets: safeTargets });
@@ -206,6 +215,16 @@ var NauEngine = (function () {
     var extras = difficult ? absurd : absurd.slice(0, 1);
     var available = chosen.cells.filter(function (cell) { return map[cell[0]][cell[1]] === '.'; });
     shuffle(available, random).slice(0, extras.length).forEach(function (cell, i) { map[cell[0]][cell[1]] = extras[i]; });
+    if (!difficult) {
+      // 양쪽에 통로가 있는 벽을 열어 기존 장보기 경로에 지름길을 더한다.
+      var shortcuts = [];
+      map.forEach(function (row, r) {
+        row.forEach(function (cell, c) {
+          if (cell === '#' && neighbors(map, [r, c]).length >= 2) shortcuts.push([r, c]);
+        });
+      });
+      shuffle(shortcuts, random).slice(0, 2).forEach(function (cell) { map[cell[0]][cell[1]] = '.'; });
+    }
     return { id: template.id, name: template.name, size: template.size, shoppingList: template.shoppingList.slice(),
       map: map, starter: JSON.parse(JSON.stringify(template.starter)) };
   }

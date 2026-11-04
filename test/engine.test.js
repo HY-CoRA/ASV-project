@@ -286,6 +286,22 @@ function minimumTour(map, targets) {
   visit(targets.map((_, index) => index), null, [[0, 0]]);
   return { moves, turns };
 }
+function hasBeginnerRoute(map, targets) {
+  const remaining = new Set(targets.map(key));
+  function visit(row, col, facing, steps, turns) {
+    if (steps > 12 || turns > 4) return false;
+    const here = key([row, col]), collected = remaining.delete(here);
+    const solved = remaining.size === 0 || directions.some(([dr, dc], direction) => {
+      const r = row + dr, c = col + dc, cell = map[r]?.[c];
+      if (!cell || cell === '#' || HAZARDS[cell]) return false;
+      const change = (direction - facing + 4) % 4;
+      return visit(r, c, direction, steps + 1, turns + Math.min(change, 4 - change));
+    });
+    if (collected) remaining.add(here);
+    return solved;
+  }
+  return visit(0, 0, 1, 0, 0);
+}
 function solveSafely(level) {
   let at = [0, 0], facing = 1;
   const program = [];
@@ -316,7 +332,7 @@ for (const metadata of LEVELS) {
   for (let seed = 1; seed <= 160; seed++) {
     const level = generateLevel(metadata, rng(seed));
     assert.equal(level.id, metadata.id);
-    assert.equal(level.map.length, hard ? 8 : 6);
+    assert.equal(level.map.length, hard ? 8 : 5);
     assert(level.map.every(row => row.length === level.map.length));
     assert.equal(level.map[0][0], 'S');
     assert.notEqual(level.map[0][1], '#');
@@ -333,10 +349,15 @@ for (const metadata of LEVELS) {
       const r = level.map.findIndex(row => row.includes(item));
       return [r, level.map[r].indexOf(item)];
     });
-    assert(targets.every(target => fromStart.get(key(target)).length - 1 >= (hard ? 8 : 5)));
-    const minimum = minimumTour(level.map, targets);
-    assert(minimum.moves >= (hard ? 28 : 14));
-    assert(minimum.turns >= (hard ? 10 : 5));
+    if (hard) {
+      assert(targets.every(target => fromStart.get(key(target)).length - 1 >= 8));
+      const minimum = minimumTour(level.map, targets);
+      assert(minimum.moves >= 28);
+      assert(minimum.turns >= 10);
+    } else {
+      assert.equal(cells.filter(cell => cell === '#').length, 6);
+      assert(hasBeginnerRoute(level.map, targets), '함정을 피해 12칸, 회전 4번 이내로 장보기를 끝낼 수 있어야 한다.');
+    }
     const branchCount = Array.from(fromStart.values()).filter(path => walkableNeighbors(level.map, path.at(-1)).length >= 3).length;
     assert(branchCount >= (hard ? 4 : 2));
     const solved = solveSafely(level);
@@ -351,7 +372,7 @@ for (const metadata of LEVELS) {
     topologies.add(level.map.map(row => row.map(cell => cell === '#' ? '#' : '.').join('')).join('/'));
   }
   assert(fingerprints.size >= 150, '물건 배치가 충분히 다양해야 한다.');
-  assert(topologies.size >= 140, '미로의 길 자체도 달라져야 한다.');
+  assert(topologies.size >= (hard ? 140 : 15), '미로의 길 자체도 달라져야 한다.');
   assert.deepEqual(generateLevel(metadata.id, rng(42)), generateLevel(metadata, rng(42)), '같은 시드로 같은 지도를 재현한다.');
   // 극단적인 난수 함수에서도 생성이 종료되고 안전한 지도가 나온다.
   assert.equal(solveSafely(generateLevel(metadata, () => 0)).result.verdict, 'perfect');
