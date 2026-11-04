@@ -87,6 +87,9 @@ function showScene(n){
   $('scene-intro').classList.toggle('hidden', n!==1);
   $('scene-play').classList.toggle('hidden', n!==2);
   $('scene-result').classList.toggle('hidden', n!==3);
+  document.querySelector('.top').classList.toggle('is-playing', n===2);
+  $('play-meta').classList.toggle('hidden', n!==2);
+  $('play-actions').classList.toggle('hidden', n!==2);
   $('timer-wrap').classList.toggle('hidden', n===1 || !attempt);
   window.scrollTo({top:0});
 }

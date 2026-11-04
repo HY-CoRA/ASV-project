@@ -11,7 +11,14 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">🛒 나우의 심부름 장보기 <span class="hint" id="level-label"></span></div>
+  <div class="header-identity">
+    <div class="brand">🛒 나우의 심부름 장보기 <span class="hint" id="level-label"></span></div>
+    <div class="map-meta hidden" id="play-meta"><span id="map-label">초1–3</span><span class="challenge-label" id="challenge-label"></span></div>
+  </div>
+  <div class="map-actions hidden" id="play-actions">
+    <button class="btn ghost" id="btn-home" type="button">🏠 홈으로</button>
+    <button class="btn ghost" id="btn-new-map" type="button">🎲 새 맵</button>
+  </div>
   <div class="timer-wrap hidden" id="timer-wrap"><span aria-hidden="true">⏱️</span><span>풀이 시간</span><time id="solve-timer" role="timer" aria-label="풀이 시간">00:00.0</time></div>
 </header>
 
@@ -59,13 +66,6 @@
 <!-- ============ 장면 2+3: 코딩 / 실행 ============ -->
 <section id="scene-play" class="play hidden">
   <div class="panel">
-    <div class="map-toolbar">
-      <div class="map-meta"><span id="map-label">초1–3</span><span class="challenge-label" id="challenge-label"></span></div>
-      <div class="map-actions">
-        <button class="btn ghost" id="btn-home" type="button">🏠 홈으로</button>
-        <button class="btn ghost" id="btn-new-map" type="button">🎲 새 맵</button>
-      </div>
-    </div>
     <div class="grid-wrap">
       <div class="grid" id="grid" aria-label="마트 지도"></div>
       <div class="failure-overlay hidden" id="failure-overlay" role="status" aria-live="polite" aria-atomic="true">
