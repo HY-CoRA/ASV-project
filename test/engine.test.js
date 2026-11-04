@@ -259,48 +259,53 @@ function paths(map, start, avoidTraps = false) {
   }
   return found;
 }
-function turnCount(path) {
-  let facing = 1, turns = 0;
-  for (let i = 1; i < path.length; i++) {
-    const direction = directions.findIndex(([dr, dc]) => dr === path[i][0] - path[i - 1][0] && dc === path[i][1] - path[i - 1][1]);
-    const change = (direction - facing + 4) % 4;
-    turns += Math.min(change, 4 - change);
-    facing = direction;
-  }
-  return turns;
-}
-function minimumTour(map, targets) {
-  const fromStart = paths(map, [0, 0]), fromTargets = targets.map(target => paths(map, target));
-  let moves = Infinity, turns = Infinity;
-  function visit(remaining, last, route) {
-    if (!remaining.length) {
-      moves = Math.min(moves, route.length - 1);
-      turns = Math.min(turns, turnCount(route));
-      return;
-    }
-    for (const next of remaining) {
-      const leg = (last === null ? fromStart : fromTargets[last]).get(key(targets[next]));
-      visit(remaining.filter(index => index !== next), next, route.concat(leg.slice(1)));
+function safeTourMetrics(map, targets) {
+  const safePaths = paths(map, [0, 0], true);
+  const graph = new Map(Array.from(safePaths, ([cell, path]) =>
+    [cell, walkableNeighbors(map, path.at(-1), true).map(key)]));
+  const targetKeys = targets.map(key), targetBits = new Map(targetKeys.map((cell, i) => [cell, 1 << i]));
+  const fullMask = (1 << targets.length) - 1;
+  const queue = [['0,0', 0, 0]], visited = new Set(['0,0|0']);
+  let moves = Infinity;
+  // 모든 목표를 방문한 가장 짧은 안전 경로. 계산은 어느 칸에서나 가능하다.
+  for (let i = 0; i < queue.length; i++) {
+    const [cell, mask, distance] = queue[i];
+    if (mask === fullMask) { moves = distance; break; }
+    for (const next of graph.get(cell)) {
+      const nextMask = mask | (targetBits.get(next) || 0), state = next + '|' + nextMask;
+      if (!visited.has(state)) {
+        visited.add(state);
+        queue.push([next, nextMask, distance + 1]);
+      }
     }
   }
-  visit(targets.map((_, index) => index), null, [[0, 0]]);
-  return { moves, turns };
-}
-function hasBeginnerRoute(map, targets) {
-  const remaining = new Set(targets.map(key));
-  function visit(row, col, facing, steps, turns) {
-    if (steps > 12 || turns > 4) return false;
-    const here = key([row, col]), collected = remaining.delete(here);
-    const solved = remaining.size === 0 || directions.some(([dr, dc], direction) => {
-      const r = row + dr, c = col + dc, cell = map[r]?.[c];
-      if (!cell || cell === '#' || HAZARDS[cell]) return false;
-      const change = (direction - facing + 4) % 4;
-      return visit(r, c, direction, steps + 1, turns + Math.min(change, 4 - change));
-    });
-    if (collected) remaining.add(here);
-    return solved;
+  const edgeKey = (a, b) => [a, b].sort().join('|');
+  const edges = Array.from(graph).flatMap(([a, neighbors]) => neighbors.filter(b => a < b).map(b => [a, b]));
+  const bridges = new Set(), requiredBridges = [];
+  for (const [a, b] of edges) {
+    const reached = new Set(['0,0']), pending = ['0,0'];
+    for (let i = 0; i < pending.length; i++) {
+      for (const next of graph.get(pending[i])) {
+        if ((pending[i] === a && next === b) || (pending[i] === b && next === a) || reached.has(next)) continue;
+        reached.add(next);
+        pending.push(next);
+      }
+    }
+    if (reached.size === graph.size) continue;
+    bridges.add(edgeKey(a, b));
+    const behind = new Set(targetKeys.filter(cell => !reached.has(cell)));
+    if (behind.size) requiredBridges.push(behind);
   }
-  return visit(0, 0, 1, 0, 0);
+  // 마지막 목표로 가는 다리는 편도면 된다. 나머지 필수 다리만 왕복을 강제한다.
+  const finalLegBridges = Math.max(...targetKeys.map(cell => requiredBridges.filter(behind => behind.has(cell)).length));
+  return {
+    moves,
+    cycles: edges.length - graph.size + 1,
+    targetsOnCycles: targetKeys.filter(cell =>
+      graph.has(cell) && graph.get(cell).filter(next => !bridges.has(edgeKey(cell, next))).length >= 2).length,
+    mandatoryRetraces: requiredBridges.length - finalLegBridges,
+    safePaths
+  };
 }
 function solveSafely(level) {
   let at = [0, 0], facing = 1;
@@ -308,7 +313,7 @@ function solveSafely(level) {
   for (const item of level.shoppingList) {
     const r = level.map.findIndex(row => row.includes(item)), target = [r, level.map[r].indexOf(item)];
     const path = paths(level.map, at, true).get(key(target));
-    assert(path, '두 목표는 함정을 밟지 않고 도달할 수 있어야 한다.');
+    assert(path, '모든 목표는 함정을 밟지 않고 도달할 수 있어야 한다.');
     for (let i = 1; i < path.length; i++) {
       const direction = directions.findIndex(([dr, dc]) => dr === path[i][0] - path[i - 1][0] && dc === path[i][1] - path[i - 1][1]);
       const change = (direction - facing + 4) % 4;
@@ -324,8 +329,8 @@ function solveSafely(level) {
   return run(level, program);
 }
 
-// 난수 지도를 여러 시드로 검증한다. 저학년도 회전과 갈림길 선택이 필요하고,
-// 고학년은 이동 거리와 회전 수가 더 많다. 모든 물건과 함정은 연결된 지도 안에 있다.
+// 난수 지도를 여러 시드로 검증한다. 난이도별 목표의 간격은 유지하되,
+// 안전한 연결 길로 장보기를 짧게 끝내고 막다른 길의 의무적인 왕복은 피한다.
 for (const metadata of LEVELS) {
   const fingerprints = new Set(), topologies = new Set();
   const hard = metadata.id === 2;
@@ -349,15 +354,19 @@ for (const metadata of LEVELS) {
       const r = level.map.findIndex(row => row.includes(item));
       return [r, level.map[r].indexOf(item)];
     });
-    if (hard) {
-      assert(targets.every(target => fromStart.get(key(target)).length - 1 >= 8));
-      const minimum = minimumTour(level.map, targets);
-      assert(minimum.moves >= 28);
-      assert(minimum.turns >= 10);
-    } else {
-      assert.equal(cells.filter(cell => cell === '#').length, 6);
-      assert(hasBeginnerRoute(level.map, targets), '함정을 피해 12칸, 회전 4번 이내로 장보기를 끝낼 수 있어야 한다.');
-    }
+    const safe = safeTourMetrics(level.map, targets), label = metadata.name + ' 시드 ' + seed;
+    assert(safe.moves <= (hard ? 24 : 12), label + ': 함정 없이 장보기를 짧게 끝낼 수 있어야 한다.');
+    assert(safe.cycles >= (hard ? 4 : 2), label + ': 함정을 피하는 연결 길이 여러 개 있어야 한다.');
+    assert.equal(safe.targetsOnCycles, targets.length, label + ': 모든 목표에 돌아 나올 수 있는 안전한 길이 있어야 한다.');
+    assert.equal(safe.mandatoryRetraces, 0, label + ': 재료를 얻기 위해 같은 막힌 길을 반드시 왕복해서는 안 된다.');
+    assert(targets.every(target => safe.safePaths.get(key(target))?.length - 1 >= (hard ? 4 : 2)),
+      label + ': 목표가 입구 바로 앞에만 몰려서는 안 된다.');
+    const separations = targets.flatMap((target, i) => {
+      const fromTarget = paths(level.map, target, true);
+      return targets.slice(i + 1).map(next => fromTarget.get(key(next)).length - 1);
+    });
+    assert(Math.min(...separations) >= (hard ? 3 : 2), label + ': 목표끼리 적당히 떨어져 있어야 한다.');
+    assert(Math.max(...separations) >= (hard ? 7 : 4), label + ': 갈림길을 살펴볼 만큼 목표가 퍼져 있어야 한다.');
     const branchCount = Array.from(fromStart.values()).filter(path => walkableNeighbors(level.map, path.at(-1)).length >= 3).length;
     assert(branchCount >= (hard ? 4 : 2));
     const solved = solveSafely(level);
@@ -372,7 +381,7 @@ for (const metadata of LEVELS) {
     topologies.add(level.map.map(row => row.map(cell => cell === '#' ? '#' : '.').join('')).join('/'));
   }
   assert(fingerprints.size >= 150, '물건 배치가 충분히 다양해야 한다.');
-  assert(topologies.size >= (hard ? 140 : 15), '미로의 길 자체도 달라져야 한다.');
+  assert(topologies.size >= (hard ? 140 : 80), '미로의 길 자체도 달라져야 한다.');
   assert.deepEqual(generateLevel(metadata.id, rng(42)), generateLevel(metadata, rng(42)), '같은 시드로 같은 지도를 재현한다.');
   // 극단적인 난수 함수에서도 생성이 종료되고 안전한 지도가 나온다.
   assert.equal(solveSafely(generateLevel(metadata, () => 0)).result.verdict, 'perfect');

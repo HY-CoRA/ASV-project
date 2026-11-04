@@ -95,85 +95,143 @@ var NauEngine = (function () {
     }
     return paths;
   }
-  function routeTurns(path) {
-    var facing = 1, turns = 0;
-    for (var i = 1; i < path.length; i++) {
-      var dr = path[i][0] - path[i - 1][0], dc = path[i][1] - path[i - 1][1];
-      var direction = DIRS.findIndex(function (dir) { return dir[0] === dr && dir[1] === dc; });
-      var change = (direction - facing + 4) % 4;
-      turns += Math.min(change, 4 - change);
-      facing = direction;
-    }
-    return turns;
-  }
-
-  // 격자 위의 무작위 신장 트리: 막힌 길도 생기지만 모든 통로가 연결된다.
-  function makeMaze(size, random) {
-    var side = Math.ceil(size / 2), map = [], parent = [], edges = [], extensions = [];
+  // 격자 통로에 여러 연결로를 남긴다. 막다른 길 왕복 대신 경로를 고르게 한다.
+  function makeMaze(size, difficult, random) {
+    var map = [], last = size % 2 ? size - 1 : size - 2, connectors = [];
     for (var row = 0; row < size; row++) map.push(Array(size).fill('#'));
-    for (var r = 0; r < side; r++) for (var c = 0; c < side; c++) {
-      var index = r * side + c;
-      parent[index] = index;
-      map[r * 2][c * 2] = '.';
-      if (c + 1 < side) edges.push([index, index + 1, r * 2, c * 2 + 1]);
-      if (r + 1 < side) edges.push([index, index + side, r * 2 + 1, c * 2]);
+    for (var r = 0; r <= last; r++) for (var c = 0; c <= last; c++) {
+      if (r % 2 === 0 || c % 2 === 0) map[r][c] = '.';
+      if ((r + c) % 2 && !(r === 0 && c === 1) && !(r === 1 && c === 0)) connectors.push([r, c]);
     }
-    function root(index) {
-      while (parent[index] !== index) index = parent[index];
-      return index;
+    if (!difficult) {
+      var openings = shuffle([[1, 1], [1, 3], [3, 1], [3, 3]], random);
+      // 작은 지도도 벽의 모양이 달라지도록 일부 모퉁이를 넓힌다.
+      openings.slice(0, 1 + Math.min(1, Math.max(0, Math.floor(random() * 2)))).forEach(function (cell) {
+        map[cell[0]][cell[1]] = '.';
+      });
     }
-    // 처음 놓인 앞으로 가기 블록은 항상 입구에서 한 칸 이동할 수 있다.
-    parent[1] = 0; map[0][1] = '.';
-    shuffle(edges, random).forEach(function (edge) {
-      var a = root(edge[0]), b = root(edge[1]);
-      if (a !== b) { parent[b] = a; map[edge[2]][edge[3]] = '.'; }
-    });
-    // 짝수 크기에서는 마지막 행과 열에 통로를 더 낼 수 있다.
     if (size % 2 === 0) {
-      for (var n = 0; n < side; n++) {
-        extensions.push([size - 1, n * 2], [n * 2, size - 1]);
-      }
-      shuffle(extensions, random).slice(0, size - 2).forEach(function (cell) { map[cell[0]][cell[1]] = '.'; });
+      var loops = [];
+      for (var n = 0; n < last; n += 2) loops.push(['row', n], ['col', n]);
+      // 가장자리도 두 입구가 있는 우회로로 만든다. 긴 외길은 만들지 않는다.
+      shuffle(loops, random).slice(0, 2).forEach(function (loop) {
+        for (var i = 0; i < 3; i++) {
+          if (loop[0] === 'row') map[size - 1][loop[1] + i] = '.';
+          else map[loop[1] + i][size - 1] = '.';
+        }
+      });
     }
+    shuffle(connectors, random);
+    var walls = difficult ? 4 : 3;
+    connectors.slice(0, walls).forEach(function (cell) { map[cell[0]][cell[1]] = '#'; });
+    // 함정은 연결 통로 일부에 둔다. 뒤에서 안전한 우회로와 목표 경로를 검증한다.
+    connectors.slice(walls, walls + (difficult ? 3 : 1)).forEach(function (cell, i) {
+      map[cell[0]][cell[1]] = i % 2 ? '미끄럼' : '물웅덩이';
+    });
     map[0][0] = 'S';
     return map;
   }
 
-  function targetOptions(map, difficult) {
-    var startPaths = pathsFrom(map, [0, 0]), cells = Object.keys(startPaths).map(function (key) {
-      return startPaths[key][startPaths[key].length - 1];
-    });
-    var branches = cells.filter(function (cell) { return neighbors(map, cell).length >= 3; }).length;
-    if (branches < (difficult ? 4 : 2)) return [];
-    var leaves = cells.filter(function (cell) {
-      return cellKey(cell) !== '0,0' && neighbors(map, cell).length === 1 && startPaths[cellKey(cell)].length - 1 >= (difficult ? 8 : 3);
-    });
-    var options = [];
-    leaves.forEach(function (a, i) {
-      var fromA = pathsFrom(map, a), startA = startPaths[cellKey(a)];
-      leaves.slice(i + 1).forEach(function (b) {
-        var startB = startPaths[cellKey(b)], between = fromA[cellKey(b)];
-        var routeA = startA.concat(between.slice(1));
-        var routeB = startB.concat(between.slice().reverse().slice(1));
-        var moves = Math.min(routeA.length, routeB.length) - 1;
-        var turnsA = routeTurns(routeA), turnsB = routeTurns(routeB);
-        if (difficult && (moves < 28 || Math.min(turnsA, turnsB) < 10)) return;
-        // 초1–3은 세 물건을 짧은 동선으로 담을 수 있는 지도를 고른다.
-        if (!difficult && !(
-          (routeA.length - 1 <= 12 && turnsA <= 4) ||
-          (routeB.length - 1 <= 12 && turnsB <= 4)
-        )) return;
-        var safe = new Set(startA.concat(startB).map(cellKey));
-        var sidePaths = cells.filter(function (cell) { return !safe.has(cellKey(cell)); });
-        if (sidePaths.length < (difficult ? 4 : 2)) return;
-        var safeTargets = cells.filter(function (cell) {
-          return safe.has(cellKey(cell)) && startPaths[cellKey(cell)].length - 1 >= (difficult ? 8 : 3);
-        });
-        if (safeTargets.length < (difficult ? 5 : 3)) return;
-        options.push({ a: a, b: b, sidePaths: sidePaths, cells: cells, safeTargets: safeTargets });
+  function edgeKey(a, b) {
+    var keys = [cellKey(a), cellKey(b)].sort();
+    return keys[0] + '/' + keys[1];
+  }
+
+  function safeCore(map, difficult) {
+    var safeMap = map.map(function (row) { return row.map(function (cell) { return HAZARDS[cell] ? '#' : cell; }); });
+    var startPaths = pathsFrom(safeMap, [0, 0]);
+    var cells = [];
+    safeMap.forEach(function (row, r) { row.forEach(function (cell, c) { if (cell !== '#') cells.push([r, c]); }); });
+    if (Object.keys(startPaths).length !== cells.length) return null;
+    // 다리 통로를 뺀 입구 쪽 순환 구역에만 목표를 둔다. 필수 왕복 구간을 없앤다.
+    var discovered = {}, low = {}, bridges = new Set(), tick = 0;
+    function visit(cell, parent) {
+      var key = cellKey(cell);
+      discovered[key] = low[key] = ++tick;
+      neighbors(safeMap, cell).forEach(function (next) {
+        var nextKey = cellKey(next);
+        if (nextKey === parent) return;
+        if (!discovered[nextKey]) {
+          visit(next, key);
+          low[key] = Math.min(low[key], low[nextKey]);
+          if (low[nextKey] > discovered[key]) bridges.add(edgeKey(cell, next));
+        } else low[key] = Math.min(low[key], discovered[nextKey]);
       });
+    }
+    visit([0, 0], null);
+    var core = [[0, 0]], seen = new Set(['0,0']), edgeCount = 0;
+    for (var i = 0; i < core.length; i++) {
+      neighbors(safeMap, core[i]).forEach(function (next) {
+        if (bridges.has(edgeKey(core[i], next))) return;
+        edgeCount++;
+        if (!seen.has(cellKey(next))) { seen.add(cellKey(next)); core.push(next); }
+      });
+    }
+    if (edgeCount / 2 - core.length + 1 < (difficult ? 4 : 2)) return null;
+    return { map: safeMap, cells: cells, core: core, keys: seen, startPaths: startPaths };
+  }
+
+  // 같은 칸을 두 번 지나지 않는 짧고 안전한 수집 경로를 먼저 확보한다.
+  function simpleRoute(graph, difficult, random) {
+    var route = [[0, 0]], seen = new Set(['0,0']), budget = difficult ? 2400 : 600;
+    var limit = difficult ? 24 : 12;
+    function extend() {
+      if (route.length - 1 === limit) return true;
+      if (--budget < 0) return false;
+      var options = shuffle(neighbors(graph.map, route[route.length - 1]).filter(function (cell) {
+        return graph.keys.has(cellKey(cell)) && !seen.has(cellKey(cell));
+      }), random);
+      for (var i = 0; i < options.length; i++) {
+        var cell = options[i], key = cellKey(cell);
+        route.push(cell); seen.add(key);
+        if (extend()) return true;
+        route.pop(); seen.delete(key);
+      }
+      return false;
+    }
+    return extend() ? route : null;
+  }
+
+  function shortestTour(targets, startPaths, targetPaths) {
+    var best = Infinity;
+    function visit(left, previous, moves) {
+      if (moves >= best) return;
+      if (!left.length) { best = moves; return; }
+      left.forEach(function (index) {
+        var paths = previous === null ? startPaths : targetPaths[previous];
+        visit(left.filter(function (other) { return other !== index; }), index,
+          moves + paths[cellKey(targets[index])].length - 1);
+      });
+    }
+    visit(targets.map(function (_, index) { return index; }), null, 0);
+    return best;
+  }
+
+  function chooseTargets(graph, route, count, difficult, random) {
+    var pool = route.filter(function (cell) {
+      return graph.startPaths[cellKey(cell)].length - 1 >= (difficult ? 4 : 2);
     });
-    return options;
+    var fromCells = {};
+    pool.forEach(function (cell) { fromCells[cellKey(cell)] = pathsFrom(graph.map, cell); });
+    for (var attempt = 0; attempt < 40; attempt++) {
+      var targets = [];
+      shuffle(pool.slice(), random).forEach(function (cell) {
+        if (targets.length === count) return;
+        if (targets.every(function (target) {
+          return fromCells[cellKey(target)][cellKey(cell)].length - 1 >= (difficult ? 3 : 2);
+        })) targets.push(cell);
+      });
+      if (targets.length !== count) continue;
+      var targetPaths = targets.map(function (cell) { return fromCells[cellKey(cell)]; });
+      var spread = 0;
+      targets.forEach(function (cell, i) { targets.forEach(function (other) {
+        spread = Math.max(spread, targetPaths[i][cellKey(other)].length - 1);
+      }); });
+      if (spread < (difficult ? 7 : 4)) continue;
+      if (shortestTour(targets, graph.startPaths, targetPaths) < (difficult ? 14 : 7)) continue;
+      return targets;
+    }
+    return null;
   }
 
   // 매 호출은 독립된 지도와 시작 블록을 반환한다. 재실행은 Engine.reset()을 쓴다.
@@ -182,49 +240,25 @@ var NauEngine = (function () {
     if (!template) throw new RangeError('알 수 없는 난이도입니다.');
     if (random !== undefined && typeof random !== 'function') throw new TypeError('random은 함수여야 합니다.');
     random = random || Math.random;
-    var difficult = template.id === 2, map, options;
+    var difficult = template.id === 2, map, graph, targets;
     // 제한된 난수 함수에서도 종료하도록, 반복 실패 후 고정 시드의 안전한 생성기를 쓴다.
-    for (var attempt = 0; attempt < 240; attempt++) {
-      if (attempt === 120) random = seededRandom(template.id * 997);
-      map = makeMaze(template.size, random);
-      options = targetOptions(map, difficult);
-      if (options.length) break;
+    for (var attempt = 0; attempt < 160; attempt++) {
+      if (attempt === 80) random = seededRandom(template.id * 997);
+      map = makeMaze(template.size, difficult, random);
+      graph = safeCore(map, difficult);
+      if (!graph) continue;
+      var route = simpleRoute(graph, difficult, random);
+      if (!route) continue;
+      targets = chooseTargets(graph, route, template.shoppingList.length, difficult, random);
+      if (targets) break;
     }
-    if (!options.length) throw new Error('안전한 지도를 생성할 수 없습니다.');
-    var chosen = shuffle(options, random)[0];
-    var targets = shuffle([chosen.a, chosen.b], random);
-    // 나머지 장보기 물건도 입구에서 멀고, 기존 물건과 떨어진 안전한 칸에 둔다.
-    while (targets.length < template.shoppingList.length) {
-      var fromTargets = targets.map(function (cell) { return pathsFrom(map, cell); });
-      var pool = shuffle(chosen.safeTargets.filter(function (cell) {
-        return !targets.some(function (target) { return cellKey(cell) === cellKey(target); });
-      }), random);
-      function nearestTarget(cell) {
-        return Math.min.apply(null, fromTargets.map(function (paths) { return paths[cellKey(cell)].length; }));
-      }
-      pool.sort(function (a, b) { return nearestTarget(b) - nearestTarget(a); });
-      targets.push(pool[0]);
-    }
+    if (!targets) throw new Error('안전한 지도를 생성할 수 없습니다.');
     shuffle(targets, random);
     targets.forEach(function (cell, i) { map[cell[0]][cell[1]] = template.shoppingList[i]; });
-    // 함정은 두 목표까지의 경로 밖에만 둔다. 우회해서 만점을 받을 수 있다.
-    shuffle(chosen.sidePaths, random).slice(0, difficult ? 3 : 1).forEach(function (cell, i) {
-      map[cell[0]][cell[1]] = i % 2 ? '미끄럼' : '물웅덩이';
-    });
     var absurd = shuffle(['양말', '축구공', '로봇'], random);
     var extras = difficult ? absurd : absurd.slice(0, 1);
-    var available = chosen.cells.filter(function (cell) { return map[cell[0]][cell[1]] === '.'; });
+    var available = graph.cells.filter(function (cell) { return map[cell[0]][cell[1]] === '.'; });
     shuffle(available, random).slice(0, extras.length).forEach(function (cell, i) { map[cell[0]][cell[1]] = extras[i]; });
-    if (!difficult) {
-      // 양쪽에 통로가 있는 벽을 열어 기존 장보기 경로에 지름길을 더한다.
-      var shortcuts = [];
-      map.forEach(function (row, r) {
-        row.forEach(function (cell, c) {
-          if (cell === '#' && neighbors(map, [r, c]).length >= 2) shortcuts.push([r, c]);
-        });
-      });
-      shuffle(shortcuts, random).slice(0, 2).forEach(function (cell) { map[cell[0]][cell[1]] = '.'; });
-    }
     return { id: template.id, name: template.name, size: template.size, shoppingList: template.shoppingList.slice(),
       map: map, starter: JSON.parse(JSON.stringify(template.starter)) };
   }
