@@ -84,7 +84,7 @@
         <button class="btn ghost" id="btn-sound" title="효과음 켜기/끄기">🔊</button>
         <button class="btn ghost" id="btn-level">🗂️ 레벨 바꾸기</button>
         <label class="speed">속도 <input type="range" id="speed" min="1" max="3" value="2" step="1"><span id="speed-label">보통</span></label>
-        <span class="count" id="block-count">블록 0개</span>
+        <span class="count" id="block-count">명령 블록 0개</span>
       </div>
     </div>
     <details class="help sticker">
@@ -93,8 +93,9 @@
         <li><b>앞으로 가기</b> — 보는 방향으로 한 칸. 벽이나 물건 선반이면 "쿵!" 하고 그 자리에 있어요. 선반은 지나갈 수 없고 앞에서 집어요.</li>
         <li><b>왼쪽/오른쪽으로 돌기</b> — 제자리에서 90도 회전.</li>
         <li><b>앞에 있는 물건 집기</b> — 바로 앞 칸에 물건이 있으면 장바구니에 넣어요. 없으면 허공을 집어요.</li>
-        <li><b>N번 반복하기</b> — 안에 넣은 블록을 N번 실행.</li>
+        <li><b>N번 반복하기</b> — 서랍에서 1~6 중 원하는 숫자 블록을 골라 횟수 칸에 꽂아요. 빈칸이면 1번 실행해요.</li>
         <li><b>만약 ~라면</b> — 앞에 벽이 있다면 / 없다면, 마지막으로 집은 게 빵이라면 / 생크림이라면.</li>
+        <li><b>함수 ①·②</b> — 만들기 블록은 작업 공간에 따로 놓고 안에 명령을 담아요. 같은 번호의 실행하기 블록을 끼운 곳에서 그 명령이 실행돼요.</li>
         <li>다이너마이트를 집으면 바로 폭발, 계산대에 들어가면 장보기 끝.</li>
         <li>점수: 정상 재료 +50, 순서 오류 −10, 이상한 재료 −20, 다이너마이트 −100. 같은 점수면 블록이 적은 쪽이 위.</li>
       </ul>

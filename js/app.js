@@ -150,6 +150,7 @@ function renderLiveList(cake){
 
 /* ---------- Blockly ---------- */
 var ws=null;
+var FUNCTION_NAMES = ['함수 ①', '함수 ②'];
 function loadStarter(){ try{ Blockly.serialization.workspaces.load(level.starter, ws); }catch(e){} }
 function initBlockly(){
   if(ws) return;
@@ -158,26 +159,44 @@ function initBlockly(){
     { type:'nau_left', message0:'왼쪽으로 돌기 ↩️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'제자리에서 왼쪽으로 90도' },
     { type:'nau_right', message0:'오른쪽으로 돌기 ↪️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'제자리에서 오른쪽으로 90도' },
     { type:'nau_pick', message0:'앞에 있는 물건 집기 ✋', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'바로 앞 선반의 물건을 장바구니에' },
-    { type:'nau_repeat', message0:'%1 번 반복하기 🔁', args0:[{ type:'field_number', name:'TIMES', value:3, min:1, max:20, precision:1 }],
-      message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'안의 블록을 N번' },
+    { type:'nau_number', message0:'%1', args0:[{ type:'field_label_serializable', name:'VALUE', text:'1' }],
+      output:'Number', style:'loop_blocks', tooltip:'반복 횟수 칸에 꽂는 숫자 (1~6)' },
+    { type:'nau_repeat', message0:'%1 번 반복하기 🔁', args0:[{ type:'input_value', name:'TIMES', check:'Number' }],
+      message1:'%1', args1:[{ type:'input_statement', name:'DO' }], inputsInline:true, previousStatement:null, nextStatement:null, style:'loop_blocks',
+      tooltip:'숫자 블록의 횟수만큼 반복해요. 빈칸이면 1번 실행해요.' },
     { type:'nau_if', message0:'만약 %1', args0:[{ type:'field_dropdown', name:'COND', options:[
         ['앞에 벽이 있다면','WALL'], ['앞에 벽이 없다면','NOWALL'], ['빵을 집었다면','GOT_BREAD'], ['생크림을 집었다면','GOT_CREAM'] ] }],
       message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'logic_blocks', tooltip:'조건이 맞을 때만 안의 블록을 실행' }
-  ]);
+  ].concat(FUNCTION_NAMES.flatMap(function(name, i){
+    return [
+      { type:'nau_define_'+i, message0:name+' 만들기', message1:'%1',
+        args1:[{ type:'input_statement', name:'DO' }], style:'function_'+i,
+        tooltip:'함수에 담을 명령을 안쪽에 넣어요.' },
+      { type:'nau_call_'+i, message0:name+' 실행하기', previousStatement:null, nextStatement:null,
+        style:'function_'+i, tooltip:'같은 번호의 함수에 담아둔 명령을 실행해요.' }
+    ];
+  })));
   var theme = Blockly.Theme.defineTheme('nau', {
     base: Blockly.Themes.Zelos,
     blockStyles: {
       move_blocks:   { colourPrimary:'#2F80ED', colourSecondary:'#8DB8F5', colourTertiary:'#1F5FB8' },
       action_blocks: { colourPrimary:'#E6334F', colourSecondary:'#F3A1AE', colourTertiary:'#B2223A' },
       loop_blocks:   { colourPrimary:'#F29E1F', colourSecondary:'#F8CF8D', colourTertiary:'#C27C12' },
-      logic_blocks:  { colourPrimary:'#7B61FF', colourSecondary:'#BDB0FF', colourTertiary:'#5A44C9' }
+      logic_blocks:  { colourPrimary:'#7B61FF', colourSecondary:'#BDB0FF', colourTertiary:'#5A44C9' },
+      function_0:    { colourPrimary:'#147D78', colourSecondary:'#83CFC8', colourTertiary:'#0D5E59' },
+      function_1:    { colourPrimary:'#A03D76', colourSecondary:'#E3A2C7', colourTertiary:'#742B56' }
     },
     componentStyles: { workspaceBackgroundColour:'#FFFDF5', flyoutBackgroundColour:'#F3E9D2', flyoutOpacity:1, scrollbarColour:'#C9B99A', insertionMarkerColour:'#1F1A14', insertionMarkerOpacity:0.3 },
     fontStyle: { family:"'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif", weight:'normal', size:13 }
   });
   var toolbox = { kind:'flyoutToolbox', contents:[
     { kind:'block', type:'nau_move' }, { kind:'block', type:'nau_left' }, { kind:'block', type:'nau_right' },
-    { kind:'block', type:'nau_pick' }, { kind:'block', type:'nau_repeat' }, { kind:'block', type:'nau_if' } ] };
+    { kind:'block', type:'nau_pick' }, { kind:'block', type:'nau_if' }, { kind:'block', type:'nau_repeat' }
+  ].concat(['1', '2', '3', '4', '5', '6'].map(function(value){
+    return { kind:'block', type:'nau_number', fields:{ VALUE:value } };
+  }), FUNCTION_NAMES.flatMap(function(_, i){
+    return [{ kind:'block', type:'nau_define_'+i }, { kind:'block', type:'nau_call_'+i }];
+  })) };
   ws = Blockly.inject('blocklyDiv', {
     toolbox: toolbox, renderer:'zelos', theme: theme, trashcan:false, sounds:false,
     scrollbars:true, move:{ scrollbars:true, drag:true, wheel:true }, zoom:{ controls:false, wheel:false, startScale:0.8 },
@@ -195,17 +214,39 @@ function readBlock(b){
     case 'nau_left': return { op:'left', id:b.id };
     case 'nau_right': return { op:'right', id:b.id };
     case 'nau_pick': return { op:'pick', id:b.id };
-    case 'nau_repeat': return { op:'repeat', id:b.id, n: Math.max(1, Math.min(20, Number(b.getFieldValue('TIMES'))||1)), body: readChain(b.getInputTargetBlock('DO')) };
+    case 'nau_call_0': return { op:'call', id:b.id, slot:0 };
+    case 'nau_call_1': return { op:'call', id:b.id, slot:1 };
+    case 'nau_repeat': {
+      var count = b.getInputTargetBlock('TIMES');
+      return { op:'repeat', id:b.id, n:count ? Number(count.getFieldValue('VALUE')) : 1, body:readChain(b.getInputTargetBlock('DO')) };
+    }
     case 'nau_if': return { op:'if', id:b.id, cond:b.getFieldValue('COND'), body: readChain(b.getInputTargetBlock('DO')) };
   }
   return { op:'noop', id:b.id };
 }
+function commandBlocks(){ return ws.getAllBlocks(false).filter(function(b){ return !b.outputConnection; }); }
 function readProgram(){
-  var tops = ws.getTopBlocks(true), seq=[];
-  tops.forEach(function(b){ seq = seq.concat(readChain(b)); });
-  return { ast: seq, chains: tops.length };
+  var functions = [], seq = [], chains = 0, error = '';
+  ws.getTopBlocks(true).forEach(function(b){
+    if(b.outputConnection) return;
+    if(b.type === 'nau_define_0' || b.type === 'nau_define_1'){
+      var slot = b.type === 'nau_define_0' ? 0 : 1;
+      if(functions[slot]) error = FUNCTION_NAMES[slot]+' 만들기 블록은 하나만 놓아주세요.';
+      functions[slot] = readChain(b.getInputTargetBlock('DO'));
+      return;
+    }
+    seq = seq.concat(readChain(b));
+    chains++;
+  });
+  var blocks = commandBlocks();
+  FUNCTION_NAMES.forEach(function(name, slot){
+    if(!error && !functions[slot] && blocks.some(function(b){ return b.type === 'nau_call_'+slot; })){
+      error = name+' 만들기 블록을 먼저 놓아주세요.';
+    }
+  });
+  return { ast:seq, chains:chains, functions:functions, error:error, blocks:blocks.length };
 }
-function updateCount(){ if(!ws) return; $('block-count').textContent='블록 '+ws.getAllBlocks(false).length+'개'; }
+function updateCount(){ if(!ws) return; $('block-count').textContent='명령 블록 '+commandBlocks().length+'개'; }
 
 /* ---------- 실행 ---------- */
 var running=false, stopRequested=false, lastResult=null;
@@ -231,6 +272,7 @@ function handleEvent(ev){
     case 'boom': addLayer($('live-cake'), ev.item); renderLiveList(eng.cake); explode($('live-cake')); SFX.boom(); say('펑!!! 다이너마이트였어요!!', '💥'); break;
     case 'checkout': placeNau(); SFX.deco(); say('계산대 도착! 장보기 끝!', '🛒'); break;
     case 'repeat': say(ev.n+'번 반복 시작!'); break;
+    case 'call': say(FUNCTION_NAMES[ev.slot]+' 실행!'); break;
     case 'if': say('조건 확인 → '+(ev.ok?'맞아요, 안쪽 실행!':'아니에요, 건너뛰어요.')); break;
   }
 }
@@ -242,24 +284,24 @@ async function runProgram(){
   if(running) return;
   ensureAudio();
   var prog = readProgram();
-  if(!prog.ast.length){ toast('블록을 하나 이상 놓아주세요'); return; }
+  if(prog.error){ toast(prog.error); return; }
+  if(!prog.ast.length){ toast('명령 블록을 하나 이상 놓아주세요'); return; }
   if(prog.chains>1) toast('연결 안 된 블록 뭉치가 '+prog.chains+'개예요. 위에서 아래 순서로 모두 실행해요.');
   stopRequested=false; setRunningUI(true); resetRun(); say('출발!');
-  var gen = E.interpret(prog.ast, eng), step;
+  var gen = E.interpret(prog.ast, eng, prog.functions), step;
   await sleep(300);
   while(!(step=gen.next()).done){
     if(stopRequested) break;
     try{ ws.highlightBlock(step.value.node.id); }catch(e){}
     handleEvent(step.value.ev);
     var t = step.value.ev.type;
-    await sleep(t==='boom'?1200 : (t==='repeat'||t==='if')? delayMs()*0.5 : delayMs());
+    await sleep(t==='boom'?1200 : (t==='repeat'||t==='if'||t==='call')? delayMs()*0.5 : delayMs());
   }
   try{ ws.highlightBlock(null); }catch(e){}
   setRunningUI(false);
   if(stopRequested){ say('멈췄어요. 블록을 고치고 다시 실행해요.'); return; }
-  if(eng.overflow) toast('동작이 너무 많아서 중간에 멈췄어요 (상한 600). 반복 횟수를 줄여보세요.');
-  var blocks = ws.getAllBlocks(false).length;
-  lastResult = { level: level, res: E.score(eng), blocks: blocks, actions: eng.actions, bumps: eng.bumps, cake: eng.cake.slice(), exploded: eng.exploded };
+  if(eng.overflow) toast('실행이 너무 길어서 멈췄어요 (상한 600). 반복 횟수와 함수 호출을 확인해보세요.');
+  lastResult = { level: level, res: E.score(eng), blocks: prog.blocks, actions: eng.actions, bumps: eng.bumps, cake: eng.cake.slice(), exploded: eng.exploded };
   await sleep(700);
   showResult();
 }

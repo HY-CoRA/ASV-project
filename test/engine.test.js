@@ -1,4 +1,5 @@
 const E = require('../js/engine.js');
+const assert = require('node:assert/strict');
 const M = () => ({ op: 'move' }), L = () => ({ op: 'left' }), R = () => ({ op: 'right' }), P = () => ({ op: 'pick' });
 const REP = (n, body) => ({ op: 'repeat', n, body }), IF = (cond, body) => ({ op: 'if', cond, body });
 function run(level, prog) { const eng = new E.Engine(level); for (const _ of E.interpret(prog, eng)) {} return { eng, res: E.score(eng), blocks: E.countBlocks(prog) }; }
@@ -53,4 +54,17 @@ const a3 = solve(L3); console.log('L3 최단:', a3.join(''));
 t = run(L3, [REP(5, [M()])]); console.assert(t.eng.c === 4 && t.eng.bumps === 1, 'shelf blocks movement'); console.log('shelf solid ok, bumps', t.eng.bumps);
 // 벽 조건: 선반 앞도 벽
 t = run(L1, [IF('NOWALL', [M()]), IF('NOWALL', [M()]), R(), IF('WALL', [P()])]); console.assert(t.eng.cake[0] === '양말'); console.log('WALL cond includes shelf ok');
+
+// 함수는 반복문과 조건문 안에서 호출할 수 있고, 함수 안에서 다른 함수도 호출할 수 있다.
+const callFirst = { op: 'call', slot: 0 };
+const callSecond = { op: 'call', slot: 1 };
+const functions = [[IF('NOWALL', [callSecond])], [M()]];
+const functionRun = new E.Engine(L3);
+Array.from(E.interpret([REP(3, [callFirst]), R(), P()], functionRun, functions));
+assert.deepEqual(functionRun.cake, ['빵']);
+assert.equal(functionRun.actions, 5);
+
+const recursiveRun = new E.Engine(L3);
+Array.from(E.interpret([callFirst], recursiveRun, [[callSecond], [callFirst]]));
+assert.equal(recursiveRun.overflow, true);
 console.log('ALL OK');
