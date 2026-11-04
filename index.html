@@ -12,6 +12,7 @@
 <body>
 <header class="top">
   <div class="brand">🛒 나우의 심부름 장보기 <span class="hint" id="level-label"></span></div>
+  <div class="timer-wrap hidden" id="timer-wrap"><span aria-hidden="true">⏱️</span><span>풀이 시간</span><time id="solve-timer" role="timer" aria-label="풀이 시간">00:00.0</time></div>
 </header>
 
 <main>
@@ -19,35 +20,32 @@
 <section id="scene-intro" class="intro">
   <div class="intro-start">
     <h1>심부름 장보기</h1>
-    <p class="mission">부모님이 부탁하셨어요.<br><strong>“딸기 🍓랑 브로콜리 🥦를 하나씩 사 오렴!”</strong></p>
+    <div class="mission"><strong>“심부름을 부탁해!”</strong><div class="mission-items" id="mission-items"></div></div>
     <div id="level-picker-wrap" class="picker-wrap">
       <h2>난이도 고르기</h2>
       <div class="level-picker" id="level-picker"></div>
     </div>
     <button class="btn big" id="btn-start">▶ 게임 시작하기</button>
   </div>
-  <section class="sticker block-guide" aria-labelledby="block-guide-title">
-    <h2 id="block-guide-title">🧩 블록 사용법</h2>
-    <p>왼쪽에서 블록을 끌어와 위에서부터 순서대로 붙여요. <b>실행</b>을 누르면 나우가 한 블록씩 따라 해요.</p>
-    <dl class="guide-list">
-      <div class="guide-move"><dt>앞으로 가기</dt><dd>화살표 방향으로 한 칸 가요. 벽 앞에서는 멈춰요.</dd></div>
-      <div class="guide-move"><dt>왼쪽·오른쪽으로 돌기</dt><dd>제자리에서 왼쪽이나 오른쪽으로 90도 돌아요.</dd></div>
-      <div class="guide-pick"><dt>서 있는 물건 집기</dt><dd>물건이 있는 칸에 올라간 뒤 그 칸의 물건을 집어요.</dd></div>
-      <div class="guide-loop"><dt>반복하기 <span>초4–6</span></dt><dd>안에 붙인 블록을 정한 횟수만큼 실행해요.</dd></div>
-      <div class="guide-if"><dt>만약 <span>초4–6</span></dt><dd>앞에 벽이 있는지 확인하고, 고른 조건이 맞을 때만 안쪽 블록을 실행해요.</dd></div>
-      <div class="guide-end"><dt>종료 / 계산하기</dt><dd>장보기를 끝내고 점수를 확인해요. 맨 마지막에 붙여요.</dd></div>
-    </dl>
-  </section>
 </section>
 
 <!-- ============ 장면 2+3: 코딩 / 실행 ============ -->
 <section id="scene-play" class="play hidden">
   <div class="panel">
+    <div class="map-toolbar"><span id="map-label">초1–3</span><button class="btn ghost" id="btn-new-map">🎲 새 맵</button></div>
     <div class="grid-wrap">
       <div class="grid" id="grid" aria-label="마트 지도"></div>
+      <div class="failure-overlay hidden" id="failure-overlay" role="status" aria-live="polite" aria-atomic="true">
+        <div class="failure-card">
+          <div class="event-props" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="event-emoji" id="event-emoji" aria-hidden="true"></div>
+          <b id="event-title"></b>
+          <span id="event-caption"></span>
+        </div>
+      </div>
     </div>
     <div class="sticker">
-      <h2>📝 심부름 목록 <span class="hint">각각 하나씩</span></h2>
+      <h2>📝 심부름 목록</h2>
       <div class="recipe" id="recipe"></div>
     </div>
   </div>
@@ -68,42 +66,75 @@
 
 <!-- ============ 장면 4: 결과 ============ -->
 <section id="scene-result" class="result hidden">
-  <div class="panel">
-    <div class="sticker verdict">
-      <div class="big" id="res-emoji">🎉</div>
+  <div class="sticker verdict result-hero">
+    <div class="big" id="res-emoji">🎉</div>
+    <div class="verdict-copy">
       <h2 id="res-title">심부름 결과</h2>
-      <p class="hint" id="res-message"></p>
+      <p id="res-story" class="hidden"></p>
+      <div id="res-ending-caption" class="ending-caption hidden"></div>
     </div>
-    <div class="sticker">
-      <h2>📝 심부름 목록</h2>
-      <div class="recipe" id="res-shopping-list"></div>
+    <div class="result-totals">
+      <div class="result-score-wrap">
+        <span class="metrics-label">점수</span>
+        <div class="score"><span id="res-score">0</span><small><span id="res-max"></span></small></div>
+      </div>
+      <div class="result-clock"><span class="metrics-label">풀이 시간</span><b id="res-time">00:00.0</b></div>
     </div>
   </div>
-  <div class="panel result-details">
-    <div class="sticker scorecard">
-      <div class="score"><span id="res-score">0</span><small> 점 <span id="res-max"></span></small></div>
-      <div class="stats">
-        <div class="stat"><b id="res-blocks">0</b><span>블록 수</span></div>
-        <div class="stat"><b id="res-actions">0</b><span>동작 수</span></div>
-        <div class="stat"><b id="res-extras">0</b><span>추가로 집은 물건</span></div>
-        <div class="stat"><b id="res-bumps">0</b><span>벽에 쿵</span></div>
+
+  <div class="result-body">
+    <section class="sticker result-review">
+      <div class="review-heading"><h2>🗺️ 이번 장보기</h2></div>
+      <div class="review-layout">
+        <section class="route-card" aria-label="이동 경로">
+          <div class="result-map-wrap"><div id="result-grid" class="grid result-grid" aria-label="이번 장보기 이동 경로"></div></div>
+          <div id="route-summary" class="route-summary"></div>
+        </section>
+        <div class="review-details">
+          <section class="shopping-card">
+            <h3>📝 심부름 목록</h3>
+            <div class="recipe" id="res-shopping-list"></div>
+          </section>
+          <div class="stats">
+            <div class="stat"><b id="res-blocks">0</b><span>블록 수</span></div>
+            <div class="stat"><b id="res-actions">0</b><span>동작 수</span></div>
+            <div class="stat"><b id="res-extras">0</b><span>추가 물건</span></div>
+            <div class="stat"><b id="res-bumps">0</b><span>벽에 쿵</span></div>
+            <div class="stat"><b id="res-traps">0</b><span>함정 감점</span></div>
+          </div>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="물건별 점수">
+            <table class="breakdown"><thead><tr><th>물건</th><th>판정</th><th class="pts">점수</th></tr></thead><tbody id="res-rows"></tbody></table>
+          </div>
+        </div>
       </div>
-      <div class="table-wrap" tabindex="0" role="region" aria-label="물건별 점수">
-        <table class="breakdown"><thead><tr><th>물건</th><th>판정</th><th class="pts">점수</th></tr></thead><tbody id="res-rows"></tbody></table>
-      </div>
-    </div>
-    <div class="sticker hof">
-      <h2>🏅 명예의 전당</h2>
-      <form id="hof-form"><input id="hof-name" aria-label="이름" maxlength="12" placeholder="이름 (12자까지)" autocomplete="off"><button class="btn blue" type="submit" id="hof-submit">등록</button></form>
+    </section>
+    <section class="sticker hof">
+      <div class="hof-heading"><h2>🏅 명예의 전당</h2><button class="btn ghost" id="btn-name-entry">이름 등록</button></div>
+      <p class="hof-status" id="hof-status" role="status"></p>
       <ol id="hof-list" tabindex="0" aria-label="순위"></ol>
-    </div>
-    <div class="actions">
-      <button class="btn" id="btn-retry">🔄 다시 도전 (블록 유지)</button>
-      <button class="btn ghost" id="btn-restart">처음으로</button>
-    </div>
+    </section>
   </div>
+  <footer class="result-footer actions">
+    <button class="btn" id="btn-retry">🔄 다시 도전 (블록 유지)</button>
+    <button class="btn ghost" id="btn-restart">처음으로</button>
+  </footer>
 </section>
 </main>
+<dialog class="name-dialog" id="name-dialog" aria-labelledby="name-title" aria-describedby="name-summary">
+  <form id="name-form" novalidate>
+    <div class="name-dialog-icon" aria-hidden="true">🏅</div>
+    <h2 id="name-title">이름을 알려줘!</h2>
+    <p id="name-summary"></p>
+    <label for="player-name">이름 또는 별명</label>
+    <input id="player-name" name="name" maxlength="12" autocomplete="off" spellcheck="false" placeholder="어떤 이름으로 남길까요?" required>
+    <p id="name-error" class="name-error hidden" role="alert"></p>
+    <p id="name-status" class="name-status" role="status"></p>
+    <div class="name-dialog-actions">
+      <button class="btn" id="name-submit" type="submit">등록하고 결과 보기</button>
+      <button class="btn ghost" id="name-skip" type="button">건너뛰기</button>
+    </div>
+  </form>
+</dialog>
 <div class="toast" id="toast"></div>
 
 <script src="vendor/blockly.min.js"></script>
