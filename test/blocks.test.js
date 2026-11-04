@@ -21,7 +21,7 @@ Blockly.inject = (id, options) => {
 };
 const elements = new Map();
 context.$ = id => {
-  if (!elements.has(id)) elements.set(id, { clientWidth: 0, textContent: '' });
+  if (!elements.has(id)) elements.set(id, { clientWidth: 0, textContent: '', dataset: {} });
   return elements.get(id);
 };
 context.level = LEVELS[0];
@@ -61,6 +61,9 @@ try {
   assert.equal(program.blocks, 7, '중첩 블록과 시작 블록을 세고 분리된 블록은 제외한다.');
   assert.deepEqual(Array.from(program.ast, node => node.op), ['repeat', 'if']);
   assert.deepEqual(Array.from(program.ast[1].body, node => node.op), ['right', 'move', 'pick']);
+  context.updateCount();
+  assert.equal(elements.get('btn-run').textContent, '▶ 미리보기', '분리된 종료 블록은 결과 실행으로 표시하지 않는다.');
+  assert.equal(elements.get('btn-run').dataset.mode, 'preview');
   const level = { shoppingList: ['딸기'], map: [['S', '.', '.'], ['#', '#', '딸기']] };
   let engine = new Engine(level);
   Array.from(interpret(program.ast, engine));
@@ -71,6 +74,9 @@ try {
   condition.nextConnection.connect(checkout.previousConnection);
   program = context.readProgram();
   assert.equal(program.blocks, 8);
+  context.updateCount();
+  assert.equal(elements.get('btn-run').textContent, '▶ 결과까지 실행', '연결된 종료 블록이 있으면 결과까지 실행한다고 표시한다.');
+  assert.equal(elements.get('btn-run').dataset.mode, 'submit');
   engine = new Engine(level);
   Array.from(interpret(program.ast, engine));
   assert.equal(engine.checkedOut, true, '시작 체인에 연결한 종료 블록은 실행한다.');
@@ -90,6 +96,8 @@ try {
   assert.equal(program.start, start);
   assert.equal(program.ast.length, 0);
   assert.equal(program.blocks, 1, '빈 시작 블록 아래의 분리된 체인은 제외한다.');
+  context.updateCount();
+  assert.equal(elements.get('btn-run').dataset.mode, 'preview', '시작 체인을 끊으면 미리보기 표시로 돌아온다.');
   start.dispose();
   program = context.readProgram();
   assert.equal(program.start, undefined);

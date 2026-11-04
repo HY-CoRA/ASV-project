@@ -19,13 +19,36 @@
 <!-- ============ 장면 1: 인트로 ============ -->
 <section id="scene-intro" class="intro">
   <div class="intro-start">
-    <h1>심부름 장보기</h1>
-    <div class="mission"><strong>“심부름을 부탁해!”</strong><div class="mission-items" id="mission-items"></div></div>
-    <div id="level-picker-wrap" class="picker-wrap">
-      <h2>난이도 고르기</h2>
-      <div class="level-picker" id="level-picker"></div>
+    <div class="intro-welcome">
+      <div class="intro-eyebrow">반가워요, 여기는 나우마트!</div>
+      <h1>오늘은 내가<br><span>장보기 대장!</span></h1>
+      <p class="intro-subtitle">나우와 함께 떠나는 맛있는 심부름 모험</p>
+      <div class="intro-market" aria-hidden="true">
+        <span class="market-spark spark-one">✦</span><span class="market-spark spark-two">✦</span>
+        <div class="market-bubble">장바구니 준비 완료!</div>
+        <div class="market-shop">
+          <div class="market-sign"><span>✳</span> 나우마트 <span>✳</span></div>
+          <div class="market-awning"></div>
+          <div class="market-window"><span>싱싱한 모험이 가득!</span><div>🥦 🍓 🥕</div></div>
+          <div class="market-door"><span>OPEN</span><i></i></div>
+          <div class="market-produce"><span>🍎 🍋</span><span>🥬 🍆</span></div>
+        </div>
+        <div class="market-path"></div>
+        <div class="market-shopper"><span class="shopper-face">🧒</span><span class="shopper-cart">🛒</span></div>
+        <div class="market-sticker">오늘도<br>신나는 발견!</div>
+      </div>
+      <div class="intro-discover"><span>🥕 재료 16종</span><span>🎁 깜짝 엔딩 10종</span><span>🎲 매번 새로운 지도</span></div>
     </div>
-    <button class="btn big" id="btn-start">▶ 게임 시작하기</button>
+    <div class="sticker intro-challenge">
+      <div class="intro-card-heading"><span class="intro-card-icon" aria-hidden="true">🛍️</span><div><span class="intro-card-kicker">나의 장보기 미션</span><h2>오늘의 도전</h2></div><span class="intro-ready">준비됐나요?</span></div>
+      <div class="mission"><div class="mission-title"><strong>오늘 담을 재료</strong><span>시작할 때 공개!</span></div><div class="mission-items" id="mission-items"></div></div>
+      <div id="level-picker-wrap" class="picker-wrap">
+        <h2>어떤 모험을 떠날까요?</h2>
+        <div class="level-picker" id="level-picker"></div>
+      </div>
+      <button class="btn big" id="btn-start" type="button">장보기 출발!</button>
+      <p class="intro-start-note">가장 멋진 장보기 기록에 도전해요 🏆</p>
+    </div>
   </div>
 </section>
 

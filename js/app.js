@@ -45,7 +45,14 @@ function renderLevelPicker(){
   E.LEVELS.forEach(function(lv){
     var card = document.createElement('button'); card.type='button'; card.className='level-card'+(lv.id===level.id?' on':'');
     card.setAttribute('aria-pressed', lv.id===level.id?'true':'false');
-    card.innerHTML = '<b>'+lv.name+'</b>';
+    var icon=document.createElement('span'); icon.className='level-icon'; icon.setAttribute('aria-hidden','true');
+    icon.textContent=lv.id===1?'🌱':'🌳';
+    var copy=document.createElement('span'); copy.className='level-card-copy';
+    var name=document.createElement('b'); name.textContent=lv.name;
+    var detail=document.createElement('small'); detail.textContent='재료 '+lv.targetCount+'개 · '+lv.size+'×'+lv.size+' 지도';
+    copy.append(name,detail);
+    var check=document.createElement('span'); check.className='level-check'; check.setAttribute('aria-hidden','true'); check.textContent='✓';
+    card.append(icon,copy,check);
     card.addEventListener('click', function(){ selectLevel(lv); });
     box.appendChild(card);
   });
@@ -313,7 +320,16 @@ function readProgram(){
   var start = ws.getTopBlocks(true).find(function(block){ return block.type==='nau_start'; });
   return { start:start, ast:start ? readChain(start.getNextBlock()) : [], blocks:start ? start.getDescendants(false).length : 0 };
 }
-function updateCount(){ if(!ws) return; $('block-count').textContent='블록 '+ws.getAllBlocks(false).length+'개'; }
+function hasCheckout(nodes){
+  return nodes.some(function(node){ return node.op==='checkout' || (node.body && hasCheckout(node.body)); });
+}
+function updateCount(){
+  if(!ws) return;
+  $('block-count').textContent='블록 '+ws.getAllBlocks(false).length+'개';
+  var prog=readProgram(), submission=hasCheckout(prog.ast);
+  $('btn-run').textContent=submission?'▶ 결과까지 실행':'▶ 미리보기';
+  $('btn-run').dataset.mode=submission?'submit':'preview';
+}
 
 /* ---------- 실행 ---------- */
 var running=false, stopRequested=false, lastResult=null, route=[], activeRun=null, runSequence=0;
@@ -401,9 +417,6 @@ async function runProgram(){
   }
   setRunningUI(false); activeRun=null;
   openNameDialog(completed);
-}
-function hasCheckout(nodes){
-  return nodes.some(function(node){ return node.op==='checkout' || (node.body && hasCheckout(node.body)); });
 }
 function goHome(){
   mapRequest++; sessionRevision++; hofRequest++; runSequence++;
