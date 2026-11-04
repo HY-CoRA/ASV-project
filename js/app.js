@@ -26,10 +26,11 @@ var SFX = {
   win:function(){ var revision=sessionRevision; [523,659,784,1046].forEach(function(f,i){ setTimeout(function(){ if(revision===sessionRevision) tone(f,0.25,'triangle',0.08); }, i*140); }); },
   lose:function(){ var revision=sessionRevision; [392,330,262].forEach(function(f,i){ setTimeout(function(){ if(revision===sessionRevision) tone(f,0.3,'sawtooth',0.06); }, i*220); }); }
 };
-function failureSound(id,run){
-  var notes=id==='robot' ? [330,660,440,880] : id==='football' ? [784,988,784,1046] : [240,360,300,180];
+function failureSound(ending,run){
+  var notes=ending.notes || [240,360,300,180];
+  var waveform=ending.waveform || (ending.id==='robot'?'square':'triangle');
   notes.forEach(function(f,i){ setTimeout(function(){
-    if(runIsCurrent(run) && !stopRequested) tone(f,0.14,id==='robot'?'square':'triangle',0.05);
+    if(runIsCurrent(run) && !stopRequested) tone(f,0.14,waveform,0.05);
   },i*150); });
 }
 
@@ -49,11 +50,9 @@ function renderLevelPicker(){
     box.appendChild(card);
   });
   var mission = $('mission-items'); mission.replaceChildren();
-  level.shoppingList.forEach(function(key){
-    var item = document.createElement('span');
-    item.textContent = ITEMS[key].emoji+' '+ITEMS[key].label;
-    mission.appendChild(item);
-  });
+  var item=document.createElement('span');
+  item.textContent='🎲 랜덤 재료 '+(level.targetCount || level.shoppingList.length)+'개';
+  mission.appendChild(item);
   $('level-label').textContent = level.name;
   $('btn-start').textContent = '▶ '+level.name+' 시작하기';
 }
@@ -210,7 +209,7 @@ async function animatePick(ev,run){
 async function animateFailure(item,run){
   if(!runIsCurrent(run)) return;
   var actor=nauEl, ending=FAILURES[item], overlay=$('failure-overlay');
-  var props=ending.id==='socks' ? ['🫧','🧺','🫧'] : ending.id==='football' ? ['🥅','🏆','📣'] : ['🎵','🪩','🎶'];
+  var props=ending.props || [ending.emoji,'✨','✨'];
   overlay.dataset.ending=ending.id;
   $('event-emoji').textContent=ending.emoji;
   $('event-title').textContent=ending.title;
@@ -218,7 +217,7 @@ async function animateFailure(item,run){
   overlay.querySelectorAll('.event-props span').forEach(function(el,i){ el.textContent=props[i]; });
   overlay.classList.remove('hidden');
   actor.dataset.ending=ending.id;
-  failureSound(ending.id,run);
+  failureSound(ending,run);
   for(var i=0;i<22 && !stopRequested;i++){
     await sleep(80);
     if(!runIsCurrent(run)) return;
@@ -324,7 +323,7 @@ function runIsCurrent(run){
   return !!run && activeRun===run && !run.cancelled && run.revision===sessionRevision && !!attempt && run.attemptId===attempt.id;
 }
 function resetRun(){
-  eng.reset(); route=[[eng.r,eng.c]]; placeNau(true); nauEl.classList.remove('bump', 'picking', 'slipping');
+  eng.reset(); route=[[eng.r,eng.c]]; placeNau(true); nauEl.classList.remove('bump', 'picking', 'slipping', 'stuck');
   $('failure-overlay').classList.add('hidden');
   delete $('failure-overlay').dataset.ending;
   delete nauEl.dataset.ending;
@@ -343,11 +342,13 @@ function handleEvent(ev,run){
       route.push([eng.r,eng.c]); placeNau();
       var cell = gridEl.children[ev.row*eng.cols+ev.col];
       cell.classList.add('triggered');
-      nauEl.classList.remove('slipping'); void nauEl.offsetWidth; nauEl.classList.add('slipping');
+      var hazard=HAZARDS[ev.hazard] || {};
+      var motionClass=hazard.motion==='sticky'?'stuck':hazard.motion==='bump'?'bump':'slipping';
+      actor.classList.remove('slipping','stuck','bump'); void actor.offsetWidth; actor.classList.add(motionClass);
       var loss = document.createElement('span'); loss.className='trap-loss'; loss.textContent='−'+ev.penalty;
       nauEl.appendChild(loss);
       SFX.bump();
-      return sleep(700).then(function(){ loss.remove(); if(runIsCurrent(run)) actor.classList.remove('slipping'); });
+      return sleep(700).then(function(){ loss.remove(); if(runIsCurrent(run)) actor.classList.remove(motionClass); });
     }
     case 'pick': return animatePick(ev,run);
     case 'pickNothing':

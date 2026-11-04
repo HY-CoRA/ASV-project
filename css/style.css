@@ -127,6 +127,7 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .nau.picking .pick-hand{animation:grab .76s ease-in-out}
 .nau.picking .bag{animation:bag-bounce .76s ease-in-out}
 .nau.slipping .body{animation:slip .7s ease-in-out}
+.nau.stuck .body{animation:sticky .7s ease-in-out}
 .cell.hazard{background:repeating-linear-gradient(135deg,#FFF1C4 0 8px,#FFDC89 8px 16px)}
 .cell.hazard.triggered{background:#E0E9EA}
 .cell.hazard.triggered .b{opacity:.4}
@@ -148,6 +149,7 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .failure-overlay[data-ending="socks"] .failure-card{background:#DFF8FF}
 .failure-overlay[data-ending="football"] .failure-card{background:#E4F7D8}
 .failure-overlay[data-ending="robot"] .failure-card{background:#F0DFFF}
+[data-ending] .event-emoji,.nau[data-ending] .body{animation:party-hop .55s ease-in-out infinite alternate}
 [data-ending="socks"] .event-emoji,.nau[data-ending="socks"] .body{animation:laundry-spin .8s ease-in-out infinite}
 [data-ending="football"] .event-emoji,.nau[data-ending="football"] .body{animation:football-roll 1s ease-in-out infinite}
 [data-ending="robot"] .event-emoji,.nau[data-ending="robot"] .body{animation:robot-dance .45s ease-in-out infinite alternate}
@@ -160,6 +162,7 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 @keyframes grab{0%,100%{opacity:0;transform:translate(0,0) rotate(-25deg)}25%,45%{opacity:1;transform:translate(-15%,40%) rotate(25deg)}70%{opacity:1;transform:translate(20%,-35%) rotate(-20deg)}}
 @keyframes bag-bounce{0%,40%,100%{transform:scale(1)}70%{transform:scale(1.35) rotate(-15deg)}}
 @keyframes slip{0%,100%{transform:rotate(0)}25%{transform:translateX(-12%) rotate(-30deg)}60%{transform:translateX(15%) rotate(22deg)}}
+@keyframes sticky{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(7%) scale(1.08,.88) rotate(-7deg)}65%{transform:translateY(-10%) scale(.94,1.12) rotate(7deg)}}
 @keyframes loss-rise{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-28px)}}
 @keyframes collected{50%{transform:scale(1.08);background:#8EE9A8}}
 
@@ -206,6 +209,7 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .verdict[data-ending="robot"]{background:#F0DFFF}
 #res-story{font-size:15px;line-height:1.5}
 .ending-caption{display:inline-block;margin-top:8px;padding:5px 9px;border:2px solid #1F1A14;border-radius:10px;background:#fff;color:#1F1A14;font:13px/1.4 var(--display)}
+.verdict[data-ending] .big{animation:party-hop .7s ease-in-out 4 alternate}
 .verdict[data-ending="socks"] .big{animation:laundry-spin 1.6s ease-in-out 2}
 .verdict[data-ending="football"] .big{animation:football-roll 1.4s ease-in-out 2}
 .verdict[data-ending="robot"] .big{animation:robot-dance .55s ease-in-out 4 alternate}

@@ -8,9 +8,46 @@ const os = require('node:os');
 const { once } = require('node:events');
 const http = require('node:http');
 const { createServer } = require('../server.cjs');
+const Game = require('../js/engine.js');
 
 const M = { op: 'move' }, P = { op: 'pick' }, C = { op: 'checkout' };
 const fixture = () => ({ map: [['S', '딸기', '양말']], shoppingList: ['딸기'] });
+
+function seededRandom(seed) {
+  return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+}
+function shoppingProgram(attempt) {
+  const directions = [[-1, 0], [0, 1], [1, 0], [0, -1]], key = cell => cell.join(',');
+  let at = [0, 0], facing = 1;
+  const program = [];
+  for (const item of attempt.shoppingList) {
+    const row = attempt.map.findIndex(cells => cells.includes(item)), target = [row, attempt.map[row].indexOf(item)];
+    const queue = [[at]], seen = new Set([key(at)]);
+    let route;
+    for (let i = 0; i < queue.length; i++) {
+      const path = queue[i], cell = path.at(-1);
+      if (key(cell) === key(target)) { route = path; break; }
+      for (const [dr, dc] of directions) {
+        const next = [cell[0] + dr, cell[1] + dc], value = attempt.map[next[0]]?.[next[1]];
+        if (value === undefined || value === '#' || Game.HAZARDS[value] || seen.has(key(next))) continue;
+        seen.add(key(next));
+        queue.push([...path, next]);
+      }
+    }
+    assert(route, 'The actual requested ingredient has a hazard-free route');
+    for (let i = 1; i < route.length; i++) {
+      const direction = directions.findIndex(([dr, dc]) => dr === route[i][0] - route[i - 1][0] && dc === route[i][1] - route[i - 1][1]);
+      const turns = (direction - facing + 4) % 4;
+      if (turns === 3) program.push({ op: 'left' });
+      else for (let n = 0; n < turns; n++) program.push({ op: 'right' });
+      program.push(M);
+      facing = direction;
+    }
+    program.push(P);
+    at = target;
+  }
+  return [...program, C];
+}
 
 async function launch(t, options = {}) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'asv-server-'));
@@ -71,6 +108,57 @@ test('server creates a map session and replays the stored map with authoritative
   assert.equal(entered.body.entry.score, 50);
   assert.equal(entered.body.entry.elapsedMs, 4321);
   assert.equal(entered.body.rank, 1);
+});
+
+test('real random ingredient lists are stored, scored, and preserved on same-map retry', async t => {
+  let generated = 0, latest;
+  const app = await launch(t, { generateLevel: id => {
+    latest = Game.generateLevel(id, seededRandom(200 + ++generated));
+    return latest;
+  } });
+  let clock = 1_000_000;
+  for (const level of [1, 2]) {
+    const started = (await app.start({ level })).body, count = level === 1 ? 3 : 5;
+    assert.deepEqual(started.map, latest.map);
+    assert.deepEqual(started.shoppingList, latest.shoppingList);
+    assert.equal(started.shoppingList.length, count);
+    assert.equal(new Set(started.shoppingList).size, count);
+    assert(started.shoppingList.every(item => Game.INGREDIENTS.includes(item)));
+    const program = shoppingProgram(started), lists = new Set([started.shoppingList.slice().sort().join('/')]);
+    // Only the serialized attempt is authoritative after creation, even if its source object changes.
+    latest.map[0][0] = '#';
+    latest.shoppingList.length = 0;
+    clock += 2500;
+    app.setTime(clock);
+    const finished = await app.finish(started.id, program, { shoppingList: ['양말'], score: 99999 });
+    assert.equal(finished.status, 200);
+    assert.equal(finished.body.result.verdict, 'perfect');
+    assert.equal(finished.body.result.total, count * 50);
+    assert.equal(finished.body.result.max, count * 50);
+    assert.deepEqual(finished.body.result.rows.map(row => row.item).sort(), started.shoppingList.slice().sort());
+    const entry = await app.enter(started.id, '랜덤재료' + level);
+    assert.equal(entry.body.entry.score, count * 50);
+    const generationCount = generated;
+    clock += 60_000;
+    app.setTime(clock);
+    const retry = (await app.start({ level, retryOf: started.id })).body;
+    assert.equal(generated, generationCount, 'Retry must not sample another map or ingredient list');
+    assert.deepEqual(retry.map, started.map);
+    assert.deepEqual(retry.shoppingList, started.shoppingList);
+    assert.equal(retry.elapsedBaseMs, 2500);
+    clock += 1500;
+    app.setTime(clock);
+    const retried = (await app.finish(retry.id, program)).body;
+    assert.equal(retried.result.total, count * 50);
+    assert.equal(retried.elapsedMs, 4000);
+    for (let i = 0; i < 5; i++) {
+      const fresh = (await app.start({ level })).body;
+      lists.add(fresh.shoppingList.slice().sort().join('/'));
+      assert.equal(fresh.shoppingList.length, count);
+      assert.equal(fresh.elapsedBaseMs, 0);
+    }
+    assert(lists.size > 1, 'Fresh maps must sample different requested ingredient combinations');
+  }
 });
 
 test('completed failure endings are eligible; missing and unfinished attempts cannot register', async t => {

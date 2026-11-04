@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { Engine, ITEMS, HAZARDS, FAILURES, LEVELS, interpret, score, compareEntries, levelById, generateLevel } = require('../js/engine.js');
+const { Engine, ITEMS, INGREDIENTS, HAZARDS, FAILURES, LEVELS, interpret, score, compareEntries, levelById, generateLevel } = require('../js/engine.js');
 
 const M = { op: 'move' };
 const L = { op: 'left' };
@@ -35,6 +35,30 @@ assert.equal(levelById('1'), lowMetadata);
 assert.equal(levelById('2'), highMetadata);
 assert.equal(levelById('3'), null);
 assert(!LEVELS.some(level => level.map.flat().includes('E')));
+assert(INGREDIENTS.length >= 16);
+assert.equal(new Set(INGREDIENTS).size, INGREDIENTS.length);
+assert(Object.keys(HAZARDS).length >= 8);
+assert(Object.keys(FAILURES).length >= 10);
+assert.equal(Object.keys(ITEMS).length, INGREDIENTS.length + Object.keys(FAILURES).length);
+for (const item of INGREDIENTS) {
+  assert(ITEMS[item]?.emoji && ITEMS[item].label);
+  assert(!FAILURES[item], '재료는 실패 이벤트 물건과 겹치지 않는다.');
+  assert(!HAZARDS[item], '재료는 함정과 겹치지 않는다.');
+}
+for (const [item, hazard] of Object.entries(HAZARDS)) {
+  assert(hazard.emoji && hazard.label);
+  assert.equal(hazard.penalty, 10);
+  assert(['slip', 'sticky', 'bump'].includes(hazard.motion));
+  assert(!ITEMS[item], '함정은 집을 수 있는 물건과 겹치지 않는다.');
+}
+for (const item of Object.keys(FAILURES)) assert(ITEMS[item], '실패 물건에도 지도에 표시할 정보가 있다.');
+for (const metadata of LEVELS) {
+  assert.equal(metadata.targetCount, metadata.id === 1 ? 3 : 5);
+  assert.equal(metadata.shoppingList.length, metadata.targetCount);
+  assert.equal(new Set(metadata.shoppingList).size, metadata.targetCount);
+  assert.deepEqual(metadata.map.flat().filter(cell => INGREDIENTS.includes(cell)).sort(), metadata.shoppingList.slice().sort(),
+    '대표 지도의 재료와 심부름 목록이 일치한다.');
+}
 
 // 집기는 현재 칸에서만 되고, 같은 칸의 물건을 두 번 담을 수 없다.
 let { engine, events, result } = run(low, [P, M, P, P, M, M, R, M, M, P, C]);
@@ -123,6 +147,27 @@ assert.equal(engine.trapHits, 0);
 assert.equal(engine.trapPenalty, 0);
 assert.equal(engine.move().type, 'trap');
 
+// 새 함정도 모두 같은 감점 규칙을 지키고, 재진입과 다시 실행을 구분한다.
+for (const hazard of Object.keys(HAZARDS)) {
+  engine = new Engine({ shoppingList: ['딸기'], map: [['S', hazard, '딸기']] });
+  assert.deepEqual(engine.move(), { type: 'trap', hazard, row: 0, col: 1, penalty: 10 });
+  assert.deepEqual(engine.pick(), { type: 'pickNothing' });
+  engine.turn('R'); engine.turn('R'); engine.move();
+  engine.turn('R'); engine.turn('R');
+  assert.deepEqual(engine.move(), { type: 'move' });
+  assert.equal(engine.trapHits, 1);
+  assert.equal(engine.trapPenalty, 10);
+  engine.move(); engine.pick(); engine.checkout();
+  assert.equal(score(engine).verdict, 'trapped');
+  assert.equal(score(engine).total, 40);
+  engine.reset();
+  assert.equal(engine.triggeredTraps.size, 0);
+  assert.equal(engine.trapHits, 0);
+  assert.equal(engine.trapPenalty, 0);
+  assert.equal(engine.move().type, 'trap');
+  assert.equal(engine.trapPenalty, 10);
+}
+
 ({ engine, result } = run(trapLevel, [M, M, P, M, M, P, C]));
 assert.equal(result.total, 80);
 assert.equal(result.max, 100);
@@ -142,12 +187,15 @@ assert.equal(result.rows[2].item, '양말');
 assert.equal(result.rows[2].pts, -20);
 
 // 목록 밖의 엉뚱한 물건은 각자 다른 실패 엔딩으로 즉시 끝난다.
-assert.deepEqual(Object.keys(FAILURES).sort(), ['양말', '축구공', '로봇'].sort());
-assert.equal(new Set(Object.values(FAILURES).map(failure => failure.id)).size, 3);
-assert.equal(new Set(Object.values(FAILURES).map(failure => failure.title)).size, 3);
+assert.equal(new Set(Object.values(FAILURES).map(failure => failure.id)).size, Object.keys(FAILURES).length);
+assert.equal(new Set(Object.values(FAILURES).map(failure => failure.title)).size, Object.keys(FAILURES).length);
 for (const [item, failure] of Object.entries(FAILURES)) {
   assert.equal(failure.emoji, ITEMS[item].emoji);
   assert(failure.title && failure.message && failure.caption);
+  assert.equal(failure.props.length, 3);
+  assert(failure.props.every(prop => typeof prop === 'string' && prop));
+  assert(failure.notes.every(note => Number.isFinite(note) && note > 0));
+  assert(failure.notes.length >= 3);
   const level = { shoppingList: ['딸기'], map: [['S', item, '딸기']] };
   ({ engine, events, result } = run(level, [M, P, P, M, P, C]));
   assert.deepEqual(events, [
@@ -331,8 +379,10 @@ function solveSafely(level) {
 
 // 난수 지도를 여러 시드로 검증한다. 난이도별 목표의 간격은 유지하되,
 // 안전한 연결 길로 장보기를 짧게 끝내고 막다른 길의 의무적인 왕복은 피한다.
+const metadataSnapshot = structuredClone(LEVELS), ingredientSnapshot = INGREDIENTS.slice();
 for (const metadata of LEVELS) {
-  const fingerprints = new Set(), topologies = new Set();
+  const fingerprints = new Set(), topologies = new Set(), lists = new Set();
+  const seenFoods = new Set(), seenHazards = new Set(), seenFailures = new Set();
   const hard = metadata.id === 2;
   for (let seed = 1; seed <= 160; seed++) {
     const level = generateLevel(metadata, rng(seed));
@@ -346,9 +396,14 @@ for (const metadata of LEVELS) {
     assert.equal(fromStart.size, cells.filter(cell => cell !== '#').length);
     assert(cells.every(cell => ['S', '.', '#'].includes(cell) || ITEMS[cell] || HAZARDS[cell]));
     assert.equal(cells.filter(cell => HAZARDS[cell]).length, hard ? 3 : 1);
-    assert.equal(cells.filter(cell => ['양말', '축구공', '로봇'].includes(cell)).length, hard ? 3 : 1);
-    assert.equal(cells.filter(cell => ['사과', '바나나', '당근'].includes(cell)).length, hard ? 3 : 1);
+    assert.equal(cells.filter(cell => FAILURES[cell]).length, hard ? 3 : 1);
+    assert.equal(new Set(cells.filter(cell => HAZARDS[cell])).size, hard ? 3 : 1);
+    assert.equal(new Set(cells.filter(cell => FAILURES[cell])).size, hard ? 3 : 1);
     assert.equal(level.shoppingList.length, hard ? 5 : 3);
+    assert.equal(new Set(level.shoppingList).size, level.shoppingList.length);
+    assert(level.shoppingList.every(item => INGREDIENTS.includes(item)));
+    assert.deepEqual(cells.filter(cell => INGREDIENTS.includes(cell)).sort(), level.shoppingList.slice().sort(),
+      '지도에는 심부름 목록의 재료만 각각 한 번 나온다.');
     const targets = level.shoppingList.map(item => {
       assert.equal(cells.filter(cell => cell === item).length, 1);
       const r = level.map.findIndex(row => row.includes(item));
@@ -379,25 +434,36 @@ for (const metadata of LEVELS) {
     assert.deepEqual(solved.engine.map, level.map, '다시 실행할 때 지도는 유지된다.');
     fingerprints.add(JSON.stringify(level.map));
     topologies.add(level.map.map(row => row.map(cell => cell === '#' ? '#' : '.').join('')).join('/'));
+    lists.add(level.shoppingList.slice().sort().join('/'));
+    cells.forEach(cell => {
+      if (INGREDIENTS.includes(cell)) seenFoods.add(cell);
+      else if (HAZARDS[cell]) seenHazards.add(cell);
+      else if (FAILURES[cell]) seenFailures.add(cell);
+    });
   }
   assert(fingerprints.size >= 150, '물건 배치가 충분히 다양해야 한다.');
   assert(topologies.size >= (hard ? 140 : 80), '미로의 길 자체도 달라져야 한다.');
+  assert(lists.size >= 80, '새 맵에서는 재료 조합도 다양하게 바뀌어야 한다.');
+  assert.deepEqual([...seenFoods].sort(), INGREDIENTS.slice().sort(), '두 난이도에서 모든 재료가 나올 수 있어야 한다.');
+  assert.deepEqual([...seenHazards].sort(), Object.keys(HAZARDS).sort(), '두 난이도에서 모든 함정이 나올 수 있어야 한다.');
+  assert.deepEqual([...seenFailures].sort(), Object.keys(FAILURES).sort(), '두 난이도에서 모든 실패 물건이 나올 수 있어야 한다.');
   assert.deepEqual(generateLevel(metadata.id, rng(42)), generateLevel(metadata, rng(42)), '같은 시드로 같은 지도를 재현한다.');
   // 극단적인 난수 함수에서도 생성이 종료되고 안전한 지도가 나온다.
   assert.equal(solveSafely(generateLevel(metadata, () => 0)).result.verdict, 'perfect');
   assert.equal(solveSafely(generateLevel(metadata, () => 0.999999)).result.verdict, 'perfect');
 }
+assert.deepEqual(LEVELS, metadataSnapshot, '지도 생성이 대표 지도와 난이도 정보를 바꾸지 않는다.');
+assert.deepEqual(INGREDIENTS, ingredientSnapshot, '재료를 무작위로 고를 때 원본 재료 목록을 바꾸지 않는다.');
 
 const independentA = generateLevel(1, rng(19)), independentB = generateLevel(1, rng(19));
+const independentSnapshot = structuredClone(independentB);
 independentA.map[0][0] = '#';
 independentA.shoppingList.pop();
 independentA.starter.blocks.blocks[0].type = 'changed';
-assert.equal(independentB.map[0][0], 'S');
-assert.deepEqual(independentB.shoppingList, ['딸기', '브로콜리', '사과']);
-assert.equal(independentB.starter.blocks.blocks[0].type, 'nau_start');
+assert.deepEqual(independentB, independentSnapshot, '지도, 목록, 시작 블록은 다른 맵과 객체를 공유하지 않는다.');
 assert.equal(independentB.starter.blocks.blocks[0].next.block.type, 'nau_move');
 assert.equal(LEVELS[0].starter.blocks.blocks[0].type, 'nau_start');
 assert.throws(() => generateLevel(99), RangeError);
 assert.throws(() => generateLevel(1, 'seed'), TypeError);
 
-console.log('ALL OK — 엔진 규칙, 함정, 세 가지 실패 엔딩, 두 난이도 × 160개 무작위 지도');
+console.log('ALL OK — 엔진 규칙, 모든 함정·실패 엔딩, 무작위 재료, 두 난이도 × 160개 지도');

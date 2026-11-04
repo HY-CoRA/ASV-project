@@ -8,36 +8,107 @@ var NauEngine = (function () {
     '바나나': { emoji: '🍌', label: '바나나', sound: 'pick' },
     '사과': { emoji: '🍎', label: '사과', sound: 'pick' },
     '당근': { emoji: '🥕', label: '당근', sound: 'pick' },
+    '오렌지': { emoji: '🍊', label: '오렌지', sound: 'pick' },
+    '포도': { emoji: '🍇', label: '포도', sound: 'pick' },
+    '수박': { emoji: '🍉', label: '수박', sound: 'pick' },
+    '복숭아': { emoji: '🍑', label: '복숭아', sound: 'pick' },
+    '배': { emoji: '🍐', label: '배', sound: 'pick' },
+    '파인애플': { emoji: '🍍', label: '파인애플', sound: 'pick' },
+    '레몬': { emoji: '🍋', label: '레몬', sound: 'pick' },
+    '체리': { emoji: '🍒', label: '체리', sound: 'pick' },
+    '오이': { emoji: '🥒', label: '오이', sound: 'pick' },
+    '옥수수': { emoji: '🌽', label: '옥수수', sound: 'pick' },
+    '감자': { emoji: '🥔', label: '감자', sound: 'pick' },
     '양말': { emoji: '🧦', label: '양말', sound: 'pick' },
     '축구공': { emoji: '⚽', label: '축구공', sound: 'pick' },
-    '로봇': { emoji: '🤖', label: '로봇', sound: 'pick' }
+    '로봇': { emoji: '🤖', label: '로봇', sound: 'pick' },
+    '마이크': { emoji: '🎤', label: '마이크', sound: 'pick' },
+    '왕관': { emoji: '👑', label: '왕관', sound: 'pick' },
+    '로켓': { emoji: '🚀', label: '로켓', sound: 'pick' },
+    '마술봉': { emoji: '🪄', label: '마술봉', sound: 'pick' },
+    '북': { emoji: '🥁', label: '북', sound: 'pick' },
+    '자석': { emoji: '🧲', label: '자석', sound: 'pick' },
+    '오리인형': { emoji: '🦆', label: '오리인형', sound: 'pick' }
   };
+  var INGREDIENTS = ['딸기', '브로콜리', '바나나', '사과', '당근', '오렌지', '포도', '수박',
+    '복숭아', '배', '파인애플', '레몬', '체리', '오이', '옥수수', '감자'];
   var HAZARDS = {
-    '물웅덩이': { emoji: '💦', label: '물웅덩이', penalty: 10 },
-    '미끄럼': { emoji: '🧼', label: '미끄러운 바닥', penalty: 10 }
+    '물웅덩이': { emoji: '💦', label: '물웅덩이', penalty: 10, motion: 'slip' },
+    '미끄럼': { emoji: '🧼', label: '미끄러운 바닥', penalty: 10, motion: 'slip' },
+    '얼음판': { emoji: '🧊', label: '얼음판', penalty: 10, motion: 'slip' },
+    '바나나껍질': { emoji: '🍌', label: '바나나껍질', penalty: 10, motion: 'slip' },
+    '진흙': { emoji: '🟤', label: '진흙', penalty: 10, motion: 'sticky' },
+    '거미줄': { emoji: '🕸️', label: '거미줄', penalty: 10, motion: 'sticky' },
+    '꿀웅덩이': { emoji: '🍯', label: '꿀웅덩이', penalty: 10, motion: 'sticky' },
+    '장난감블록': { emoji: '🧱', label: '장난감블록', penalty: 10, motion: 'bump' }
   };
   var FAILURES = {
     '양말': {
       id: 'socks', emoji: '🧦', title: '양말 세탁소 엔딩',
       message: '양말을 담았더니 거품이 몽글몽글! 마트가 세탁소로 변했어요.',
-      caption: '심부름 실패 · 빨래는 대성공!'
+      caption: '심부름 실패 · 빨래는 대성공!',
+      props: ['🫧', '🧦', '🧺'], notes: [440, 554.37, 659.25, 523.25]
     },
     '축구공': {
       id: 'football', emoji: '⚽', title: '마트 월드컵 엔딩',
       message: '축구공이 데굴데굴! 과일들이 선수로 모여 마트 월드컵이 시작됐어요.',
-      caption: '심부름 실패 · 우승컵은 가져왔어요!'
+      caption: '심부름 실패 · 우승컵은 가져왔어요!',
+      props: ['⚽', '🏆', '🥅'], notes: [523.25, 659.25, 783.99, 1046.5]
     },
     '로봇': {
       id: 'robot', emoji: '🤖', title: '삐빅! 댄스 파티 엔딩',
       message: '삐빅! 로봇이 장보기 대신 댄스 파티를 시작했어요. 모두 흔들흔들!',
-      caption: '심부름 실패 · 춤 실력 +100!'
+      caption: '심부름 실패 · 춤 실력 +100!',
+      props: ['🎵', '🤖', '✨'], notes: [440, 659.25, 554.37, 880], waveform: 'square'
+    },
+    '마이크': {
+      id: 'microphone', emoji: '🎤', title: '마트 노래왕 엔딩',
+      message: '마이크를 집자 조명이 반짝! 채소 합창단과 함께 마트 콘서트가 시작됐어요.',
+      caption: '심부름 실패 · 앙코르만 세 번째!',
+      props: ['🎤', '🎶', '🌟'], notes: [392, 493.88, 587.33, 783.99]
+    },
+    '왕관': {
+      id: 'crown', emoji: '👑', title: '장보기 왕국 엔딩',
+      message: '왕관을 쓰자 카트가 왕좌로 변했어요! 과일 신하들이 줄지어 인사해요.',
+      caption: '심부름 실패 · 왕위에 올랐어요!',
+      props: ['👑', '✨', '🏰'], notes: [523.25, 698.46, 783.99, 1046.5]
+    },
+    '로켓': {
+      id: 'rocket', emoji: '🚀', title: '우주 배송 엔딩',
+      message: '로켓이 장바구니를 싣고 슝! 장보기 대신 토성으로 우주 배송을 떠났어요.',
+      caption: '심부름 실패 · 배송지는 토성!',
+      props: ['🚀', '⭐', '🪐'], notes: [261.63, 392, 587.33, 880], waveform: 'sine'
+    },
+    '마술봉': {
+      id: 'wand', emoji: '🪄', title: '토끼 대소동 엔딩',
+      message: '마술봉을 흔들자 펑! 장바구니에서 토끼들이 폴짝폴짝 뛰어나왔어요.',
+      caption: '심부름 실패 · 토끼는 한 바구니!',
+      props: ['🪄', '🐇', '🎩'], notes: [659.25, 783.99, 987.77, 1318.51]
+    },
+    '북': {
+      id: 'drum', emoji: '🥁', title: '마트 행진곡 엔딩',
+      message: '둥둥! 북소리를 듣고 카트 행진대가 출발했어요. 마트 한 바퀴 퍼레이드!',
+      caption: '심부름 실패 · 퍼레이드 출발!',
+      props: ['🥁', '🎺', '🎶'], notes: [130.81, 196, 261.63, 196], waveform: 'square'
+    },
+    '자석': {
+      id: 'magnet', emoji: '🧲', title: '숟가락 폭풍 엔딩',
+      message: '자석에 숟가락들이 찰칵찰칵! 재료 대신 반짝이는 숟가락 산이 생겼어요.',
+      caption: '심부름 실패 · 숟가락만 잔뜩!',
+      props: ['🧲', '🥄', '🪙'], notes: [440, 415.3, 392, 523.25], waveform: 'sine'
+    },
+    '오리인형': {
+      id: 'duck', emoji: '🦆', title: '꽥꽥 목욕탕 엔딩',
+      message: '오리인형이 꽥꽥! 거품 욕조가 나타나고 마트가 오리들의 목욕탕이 됐어요.',
+      caption: '심부름 실패 · 목욕 준비 완료!',
+      props: ['🦆', '🫧', '🛁'], notes: [349.23, 440, 349.23, 523.25]
     }
   };
 
   // '#'은 벽, '.'은 통로, 'S'는 시작 칸. 물건이 놓인 칸도 지나갈 수 있다.
   var LEVELS = [
     {
-      id: 1, name: '초1–3',
+      id: 1, name: '초1–3', targetCount: 3,
       shoppingList: ['딸기', '브로콜리', '사과'],
       size: 5,
       starter: { blocks: { languageVersion: 0, blocks: [
@@ -45,7 +116,7 @@ var NauEngine = (function () {
       ] } }
     },
     {
-      id: 2, name: '초4–6',
+      id: 2, name: '초4–6', targetCount: 5,
       shoppingList: ['딸기', '브로콜리', '사과', '당근', '바나나'],
       size: 8,
       starter: { blocks: { languageVersion: 0, blocks: [
@@ -240,7 +311,7 @@ var NauEngine = (function () {
     if (!template) throw new RangeError('알 수 없는 난이도입니다.');
     if (random !== undefined && typeof random !== 'function') throw new TypeError('random은 함수여야 합니다.');
     random = random || Math.random;
-    var difficult = template.id === 2, map, graph, targets;
+    var difficult = template.id === 2, targetCount = template.targetCount, map, graph, targets;
     // 제한된 난수 함수에서도 종료하도록, 반복 실패 후 고정 시드의 안전한 생성기를 쓴다.
     for (var attempt = 0; attempt < 160; attempt++) {
       if (attempt === 80) random = seededRandom(template.id * 997);
@@ -249,21 +320,29 @@ var NauEngine = (function () {
       if (!graph) continue;
       var route = simpleRoute(graph, difficult, random);
       if (!route) continue;
-      targets = chooseTargets(graph, route, template.shoppingList.length, difficult, random);
+      targets = chooseTargets(graph, route, targetCount, difficult, random);
       if (targets) break;
     }
     if (!targets) throw new Error('안전한 지도를 생성할 수 없습니다.');
+    var shoppingList = shuffle(INGREDIENTS.slice(), random).slice(0, targetCount);
     shuffle(targets, random);
-    targets.forEach(function (cell, i) { map[cell[0]][cell[1]] = template.shoppingList[i]; });
-    var absurd = shuffle(['양말', '축구공', '로봇'], random);
-    var extras = difficult ? absurd : absurd.slice(0, 1);
+    targets.forEach(function (cell, i) { map[cell[0]][cell[1]] = shoppingList[i]; });
+    var hazardTypes = shuffle(Object.keys(HAZARDS), random), hazardIndex = 0;
+    map.forEach(function (row, r) { row.forEach(function (cell, c) {
+      if (HAZARDS[cell]) map[r][c] = hazardTypes[hazardIndex++];
+    }); });
+    var extras = shuffle(Object.keys(FAILURES), random).slice(0, difficult ? 3 : 1);
     var available = graph.cells.filter(function (cell) { return map[cell[0]][cell[1]] === '.'; });
     shuffle(available, random).slice(0, extras.length).forEach(function (cell, i) { map[cell[0]][cell[1]] = extras[i]; });
-    return { id: template.id, name: template.name, size: template.size, shoppingList: template.shoppingList.slice(),
+    return { id: template.id, name: template.name, size: template.size, targetCount: targetCount, shoppingList: shoppingList,
       map: map, starter: JSON.parse(JSON.stringify(template.starter)) };
   }
 
-  LEVELS.forEach(function (level) { level.map = generateLevel(level.id, seededRandom(level.id * 101)).map; });
+  LEVELS.forEach(function (level) {
+    var sample = generateLevel(level.id, seededRandom(level.id * 101));
+    level.map = sample.map;
+    level.shoppingList = sample.shoppingList;
+  });
 
   function findStart(map) {
     for (var row = 0; row < map.length; row++) {
@@ -431,7 +510,7 @@ var NauEngine = (function () {
     return LEVELS.find(function (level) { return level.id === Number(id); }) || null;
   }
 
-  return { ITEMS: ITEMS, HAZARDS: HAZARDS, FAILURES: FAILURES, LEVELS: LEVELS, Engine: Engine, interpret: interpret, score: score,
+  return { ITEMS: ITEMS, INGREDIENTS: INGREDIENTS, HAZARDS: HAZARDS, FAILURES: FAILURES, LEVELS: LEVELS, Engine: Engine, interpret: interpret, score: score,
            compareEntries: compareEntries, levelById: levelById, generateLevel: generateLevel };
 })();
 if (typeof module !== 'undefined') module.exports = NauEngine;
