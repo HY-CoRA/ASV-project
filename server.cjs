@@ -12,6 +12,7 @@ const ATTEMPT_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
   '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
@@ -310,7 +311,7 @@ function createServer(options = {}) {
     }
     const relative = parts.length ? parts.join('/') : 'index.html';
     const extension = path.extname(relative).toLowerCase();
-    if (!(relative === 'index.html' || relative === 'favicon.ico' || ['css', 'js', 'vendor', 'assets'].includes(parts[0])) || !MIME_TYPES[extension]) {
+    if (!(['index.html', 'favicon.ico', 'manifest.webmanifest', 'sw.js'].includes(relative) || ['css', 'js', 'vendor', 'assets', 'icons'].includes(parts[0])) || !MIME_TYPES[extension]) {
       throw new HttpError(404, '파일을 찾을 수 없습니다.');
     }
     let absolute;

@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFF1B8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="나우마트">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>나우의 심부름 장보기</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
@@ -15,12 +23,14 @@
     <div class="brand">🛒 나우의 심부름 장보기 <span class="hint" id="level-label"></span></div>
     <div class="map-meta hidden" id="play-meta"><span id="map-label">초1–3</span><span class="challenge-label" id="challenge-label"></span></div>
   </div>
+  <button class="btn ghost install-button hidden" id="btn-install" type="button">📲 앱 설치</button>
   <div class="map-actions hidden" id="play-actions">
     <button class="btn ghost" id="btn-home" type="button">🏠 홈으로</button>
     <button class="btn ghost" id="btn-new-map" type="button">🎲 새 맵</button>
   </div>
   <div class="timer-wrap hidden" id="timer-wrap"><span aria-hidden="true">⏱️</span><span>풀이 시간</span><time id="solve-timer" role="timer" aria-label="풀이 시간">00:00.0</time></div>
 </header>
+<div class="connection-note hidden" id="connection-note" role="status">인터넷 연결이 끊겼어요. 새 지도와 기록 저장은 연결 후에 이용할 수 있어요.</div>
 
 <main>
 <!-- ============ 장면 1: 인트로 ============ -->
@@ -47,12 +57,8 @@
       <div class="intro-discover"><span>🥕 재료 16종</span><span>🎁 깜짝 엔딩 10종</span><span>🎲 매번 새로운 지도</span></div>
     </div>
     <div class="sticker intro-challenge">
-      <div class="intro-card-heading"><span class="intro-card-icon" aria-hidden="true">🛍️</span><div><span class="intro-card-kicker">나의 장보기 미션</span><h2>오늘의 도전</h2></div><span class="intro-ready">준비됐나요?</span></div>
-      <div class="challenge-modes" id="challenge-modes" role="group" aria-label="도전 방식">
-        <button class="challenge-mode" id="btn-mode-daily" type="button" aria-pressed="true">🏆 함께 도전</button>
-        <button class="challenge-mode" id="btn-mode-random" type="button" aria-pressed="false">🎲 랜덤 도전</button>
-      </div>
-      <div class="mission"><div class="mission-title"><strong>오늘 담을 재료</strong><span>시작할 때 공개!</span></div><div class="mission-items" id="mission-items"></div><p class="mission-mode-caption" id="mission-mode-caption">모두 같은 맵 · 같은 순위</p></div>
+      <div class="intro-card-heading"><span class="intro-card-icon" aria-hidden="true">🛍️</span><div><span class="intro-card-kicker">나의 장보기 미션</span><h2>랜덤 도전</h2></div><span class="intro-ready">준비됐나요?</span></div>
+      <div class="mission"><div class="mission-title"><strong>오늘 담을 재료</strong><span>시작할 때 공개!</span></div><div class="mission-items" id="mission-items"></div></div>
       <div id="level-picker-wrap" class="picker-wrap">
         <h2>어떤 모험을 떠날까요?</h2>
         <div class="level-picker" id="level-picker"></div>
@@ -161,6 +167,12 @@
   </footer>
 </section>
 </main>
+<dialog class="install-dialog" id="install-dialog" aria-labelledby="install-title">
+  <img src="icons/icon-192.png" width="64" height="64" alt="">
+  <h2 id="install-title">홈 화면에 나우마트 담기</h2>
+  <p id="install-instructions"></p>
+  <button class="btn" id="btn-install-close" type="button">알겠어요</button>
+</dialog>
 <dialog class="name-dialog" id="name-dialog" aria-labelledby="name-title" aria-describedby="name-summary">
   <form id="name-form" novalidate>
     <div class="name-dialog-icon" aria-hidden="true">🏅</div>
@@ -182,5 +194,6 @@
 <script src="vendor/blockly_ko.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/app.js"></script>
+<script src="js/pwa.js"></script>
 </body>
 </html>

@@ -38,18 +38,7 @@ function failureSound(ending,run){
 var params = new URLSearchParams(location.search);
 var level = E.levelById(params.get('level')) || E.LEVELS[0];
 var locked = params.get('lock') === '1';
-var challengeMode='daily', initialChallengeId=params.get('challenge');
 var eng = new E.Engine(E.generateLevel(level));
-
-function renderChallengeModes(){
-  $('btn-mode-daily').setAttribute('aria-pressed',challengeMode==='daily'?'true':'false');
-  $('btn-mode-random').setAttribute('aria-pressed',challengeMode==='random'?'true':'false');
-  $('mission-mode-caption').textContent=challengeMode==='daily'?'모두 같은 맵·같은 순위':'매번 새로운 맵';
-}
-function selectChallengeMode(mode){
-  if(mapPending) return;
-  challengeMode=mode; initialChallengeId=null; renderChallengeModes();
-}
 
 function renderLevelPicker(){
   var box = $('level-picker'); box.innerHTML='';
@@ -75,7 +64,6 @@ function renderLevelPicker(){
   $('btn-start').textContent = '▶ '+level.name+' 시작하기';
 }
 function selectLevel(lv){
-  if(level.id!==lv.id) initialChallengeId=null;
   level = lv;
   if(ws){ ws.clear(); loadStarter(); updateCount(); }
   renderLevelPicker();
@@ -87,6 +75,7 @@ function showScene(n){
   $('scene-intro').classList.toggle('hidden', n!==1);
   $('scene-play').classList.toggle('hidden', n!==2);
   $('scene-result').classList.toggle('hidden', n!==3);
+  document.body.classList.toggle('is-playing', n===2);
   document.querySelector('.top').classList.toggle('is-playing', n===2);
   $('play-meta').classList.toggle('hidden', n!==2);
   $('play-actions').classList.toggle('hidden', n!==2);
@@ -131,6 +120,7 @@ function buildGrid(){
   gridEl.style.gridTemplateRows='repeat('+eng.rows+',minmax(0,1fr))';
   gridEl.style.aspectRatio=eng.cols+' / '+eng.rows;
   gridEl.style.setProperty('--map-ratio', eng.cols/eng.rows);
+  gridEl.style.setProperty('--map-cols', eng.cols);
   gridEl.setAttribute('aria-label','마트 지도 '+eng.rows+'x'+eng.cols);
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var v = eng.map[r][c], d=document.createElement('div'); d.className='cell';
@@ -191,7 +181,7 @@ async function api(path, body){
 function mapBusy(on){
   mapPending=on;
   if(on) clearItemHighlight();
-  ['btn-start','btn-new-map','btn-retry','btn-restart','btn-mode-daily','btn-mode-random'].forEach(function(id){ $(id).disabled=on; });
+  ['btn-start','btn-new-map','btn-retry','btn-restart'].forEach(function(id){ $(id).disabled=on; });
   if(!running){ $('btn-run').disabled=on; $('btn-clear').disabled=on; }
   $('level-picker').querySelectorAll('button').forEach(function(button){ button.disabled=on; });
   updateEditorControls();
@@ -206,8 +196,7 @@ async function newMap(options){
   try{
     var requestBody={level:requestedLevel.id};
     if(options.retryOf) requestBody.retryOf=options.retryOf;
-    else if(options.challengeId) requestBody.challengeId=options.challengeId;
-    else requestBody.mode=options.mode || challengeMode;
+    else requestBody.mode='random';
     var data=await api('attempts',requestBody);
     if(request!==mapRequest || level!==requestedLevel) return false;
     if(!data.challenge || !data.challenge.id) throw new Error('도전 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.');
@@ -362,6 +351,17 @@ function initBlockly(){
   new ResizeObserver(function(){
     if(editor.clientWidth) Blockly.svgResize(ws);
   }).observe(editor);
+  var play=$('scene-play'), panel=play.querySelector('.panel'), shopping=panel.querySelector('.sticker');
+  function fitMapColumn(){
+    if(!play.clientHeight) return;
+    var gap=parseFloat(getComputedStyle(panel).rowGap)||0;
+    var width=Math.max(0,panel.clientHeight-shopping.offsetHeight-gap)*eng.cols/eng.rows;
+    var value=width.toFixed(1)+'px';
+    if(play.style.getPropertyValue('--map-column')!==value) play.style.setProperty('--map-column',value);
+  }
+  var mapLayoutObserver=new ResizeObserver(fitMapColumn);
+  mapLayoutObserver.observe(play); mapLayoutObserver.observe(shopping);
+  fitMapColumn();
 }
 function readChain(b){ var out=[]; while(b){ out.push(readBlock(b)); b=b.getNextBlock(); } return out; }
 function readBlock(b){
@@ -726,11 +726,9 @@ async function renderHof(R){
 }
 
 /* ---------- 이벤트 바인딩 ---------- */
-renderLevelPicker(); renderChallengeModes(); updateEditorControls();
-$('btn-mode-daily').addEventListener('click',function(){ selectChallengeMode('daily'); });
-$('btn-mode-random').addEventListener('click',function(){ selectChallengeMode('random'); });
-$('btn-start').addEventListener('click',function(){ ensureAudio(); newMap({mode:challengeMode,challengeId:initialChallengeId}); });
-$('btn-new-map').addEventListener('click',function(){ newMap({mode:'random',keepCode:true}); });
+renderLevelPicker(); updateEditorControls();
+$('btn-start').addEventListener('click',function(){ ensureAudio(); newMap(); });
+$('btn-new-map').addEventListener('click',function(){ newMap({keepCode:true}); });
 $('btn-zoom-out').addEventListener('click',function(){ if(ws && !running && !mapPending) ws.zoomCenter(-1); });
 $('btn-zoom-in').addEventListener('click',function(){ if(ws && !running && !mapPending) ws.zoomCenter(1); });
 $('btn-run').addEventListener('click',function(){ runProgram(); });

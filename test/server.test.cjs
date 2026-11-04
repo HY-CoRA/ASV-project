@@ -555,3 +555,37 @@ test('static server exposes game assets and rejects traversal, symlink escapes, 
   });
   assert.equal(status, 404);
 });
+
+test('installable app manifest, worker and every icon are served with valid types and relative scope', async t => {
+  const app = await launch(t, { staticDir: path.resolve(__dirname, '..') });
+  const response = await fetch(app.base + '/manifest.webmanifest');
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /^application\/manifest\+json/);
+  const manifest = await response.json();
+  const mounted = new URL('https://example.test/game-mount/manifest.webmanifest');
+  for (const field of ['id', 'scope', 'start_url']) {
+    assert.equal(new URL(manifest[field], mounted).href, 'https://example.test/game-mount/');
+  }
+  assert.equal(manifest.display, 'standalone');
+  const sizes = new Set();
+  for (const icon of manifest.icons) {
+    const asset = await fetch(new URL(icon.src, app.base + '/manifest.webmanifest'));
+    assert.equal(asset.status, 200);
+    assert.match(asset.headers.get('content-type'), new RegExp('^' + icon.type.replace('+', '\\+')));
+    if (icon.type === 'image/png') {
+      const bytes = Buffer.from(await asset.arrayBuffer());
+      const width = bytes.readUInt32BE(16), height = bytes.readUInt32BE(20);
+      assert.equal(`${width}x${height}`, icon.sizes);
+      sizes.add(icon.sizes);
+    }
+  }
+  assert(sizes.has('192x192') && sizes.has('512x512'));
+  assert(manifest.icons.some(icon => icon.purpose === 'maskable'));
+  const worker = await fetch(app.base + '/sw.js');
+  assert.equal(worker.status, 200);
+  assert.match(worker.headers.get('content-type'), /^text\/javascript/);
+  assert.equal(worker.headers.get('cache-control'), 'no-cache');
+  const apple = await fetch(app.base + '/icons/apple-touch-icon.png');
+  assert.equal(apple.status, 200);
+  assert.equal((await fetch(app.base + '/js/pwa.js')).status, 200);
+});
