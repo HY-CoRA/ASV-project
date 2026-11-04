@@ -47,7 +47,7 @@ var NauEngine = (function () {
       ],
       thresholds: [16, 31],
       starter: { blocks: { languageVersion: 0, blocks: [
-        { type: 'nau_repeat', x: 24, y: 24, fields: { TIMES: 2 }, inputs: { DO: { block: { type: 'nau_move' } } },
+        { type: 'nau_repeat', x: 24, y: 24, inputs: { TIMES: { block: { type: 'nau_number', fields: { VALUE: '2' } } }, DO: { block: { type: 'nau_move' } } },
           next: { block: { type: 'nau_right', next: { block: { type: 'nau_pick' } } } } } ] } }
     },
     {
@@ -66,7 +66,7 @@ var NauEngine = (function () {
       ],
       thresholds: [40, 56],
       starter: { blocks: { languageVersion: 0, blocks: [
-        { type: 'nau_repeat', x: 24, y: 24, fields: { TIMES: 3 }, inputs: { DO: { block: { type: 'nau_move' } } },
+        { type: 'nau_repeat', x: 24, y: 24, inputs: { TIMES: { block: { type: 'nau_number', fields: { VALUE: '3' } } }, DO: { block: { type: 'nau_move' } } },
           next: { block: { type: 'nau_right', next: { block: { type: 'nau_pick' } } } } } ] } }
     }
   ];
@@ -127,7 +127,8 @@ var NauEngine = (function () {
     return false;
   };
 
-  function* interpret(seq, eng) {
+  // AST 노드: {op:'move'|'left'|'right'|'pick'|'repeat'|'if'|'call', n?, cond?, body?, slot?, id?}
+  function* interpret(seq, eng, functions = []) {
     for (var i = 0; i < seq.length; i++) {
       var node = seq[i];
       if (eng.ended) return;
@@ -139,14 +140,21 @@ var NauEngine = (function () {
         case 'pick':  yield { node: node, ev: eng.pick() }; break;
         case 'repeat':
           yield { node: node, ev: { type: 'repeat', n: node.n } };
-          for (var k = 0; k < node.n; k++) { if (eng.ended) return; yield* interpret(node.body || [], eng); }
+          for (var k = 0; k < node.n; k++) {
+            if (eng.ended) return;
+            yield* interpret(node.body || [], eng, functions);
+          }
           break;
         case 'if': {
           var ok = eng.cond(node.cond);
           yield { node: node, ev: { type: 'if', ok: ok, cond: node.cond } };
-          if (ok) yield* interpret(node.body || [], eng);
+          if (ok) yield* interpret(node.body || [], eng, functions);
           break;
         }
+        case 'call':
+          yield { node: node, ev: { type: 'call', slot: node.slot } };
+          yield* interpret(functions[node.slot] || [], eng, functions);
+          break;
       }
     }
   }
