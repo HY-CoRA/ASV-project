@@ -377,6 +377,105 @@ function solveSafely(level) {
   return run(level, program);
 }
 
+// 생성기의 경로 판정과 별개로 칸·방향·수집 목록을 모두 탐색한다.
+// 최소 명령 수가 같은 경로에서는 90도 회전을 더 적게 하는 경로를 고른다.
+function optimalSafeCommands(level) {
+  const rows = level.map.length, cols = level.map[0].length, cells = rows * cols;
+  const fullMask = (1 << level.shoppingList.length) - 1, stateCount = cells * 4 * (fullMask + 1);
+  const turnBase = stateCount + 1, targetBits = new Int32Array(cells);
+  let startCell = -1;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const value = level.map[r][c], item = level.shoppingList.indexOf(value);
+    if (value === 'S') startCell = r * cols + c;
+    if (item !== -1) targetBits[r * cols + c] = 1 << item;
+  }
+  assert.notEqual(startCell, -1);
+  const stateId = (cell, direction, mask) => (mask * cells + cell) * 4 + direction;
+  const costs = new Float64Array(stateCount), previous = new Int32Array(stateCount), operations = new Uint8Array(stateCount);
+  costs.fill(Infinity); previous.fill(-1);
+  const heap = [];
+  function push(entry) {
+    let i = heap.length; heap.push(entry);
+    while (i) {
+      const parent = (i - 1) >> 1;
+      if (heap[parent][0] <= entry[0]) break;
+      heap[i] = heap[parent]; i = parent;
+    }
+    heap[i] = entry;
+  }
+  function pop() {
+    const first = heap[0], last = heap.pop();
+    if (heap.length) {
+      let i = 0;
+      while (i * 2 + 1 < heap.length) {
+        let child = i * 2 + 1;
+        if (child + 1 < heap.length && heap[child + 1][0] < heap[child][0]) child++;
+        if (last[0] <= heap[child][0]) break;
+        heap[i] = heap[child]; i = child;
+      }
+      heap[i] = last;
+    }
+    return first;
+  }
+  const initial = stateId(startCell, 1, targetBits[startCell]);
+  costs[initial] = 0; push([0, initial]);
+  while (heap.length) {
+    const [cost, state] = pop();
+    if (cost !== costs[state]) continue;
+    const direction = state % 4, cell = Math.floor(state / 4) % cells, mask = Math.floor(state / 4 / cells);
+    if (mask === fullMask) {
+      const steps = [];
+      for (let cursor = state; previous[cursor] !== -1; cursor = previous[cursor]) {
+        steps.push([operations[cursor], Math.floor(cursor / 4) % cells]);
+      }
+      steps.reverse();
+      const program = [];
+      let collected = 0;
+      for (const [operation, at] of steps) {
+        program.push(operation === 1 ? L : operation === 2 ? R : M);
+        if (targetBits[at] && !(collected & targetBits[at])) {
+          program.push(P); collected |= targetBits[at];
+        }
+      }
+      program.push(C);
+      const commands = Math.floor(cost / turnBase), turns = cost % turnBase;
+      return { moves: commands - turns, turns, commands, program };
+    }
+    const next = [[cell, (direction + 3) % 4, mask, 1], [cell, (direction + 1) % 4, mask, 2]];
+    const r = Math.floor(cell / cols) + directions[direction][0], c = cell % cols + directions[direction][1];
+    const value = level.map[r]?.[c];
+    if (value !== undefined && value !== '#' && !HAZARDS[value]) {
+      const at = r * cols + c;
+      next.push([at, direction, mask | targetBits[at], 3]);
+    }
+    for (const [at, facing, collected, operation] of next) {
+      const id = stateId(at, facing, collected), nextCost = cost + turnBase + (operation === 3 ? 0 : 1);
+      if (nextCost >= costs[id]) continue;
+      costs[id] = nextCost; previous[id] = state; operations[id] = operation;
+      push([nextCost, id]);
+    }
+  }
+  assert.fail('모든 재료를 방문하는 안전한 명령 경로가 있어야 한다.');
+}
+function assertBalancedEffort(level, label) {
+  const hard = level.id === 2, effort = optimalSafeCommands(level);
+  const within = (value, min, max, what) => assert(value >= min && value <= max,
+    label + ': ' + what + ' ' + value + '은 ' + min + '–' + max + ' 범위여야 한다.');
+  within(effort.moves, hard ? 20 : 9, hard ? 22 : 10, '최소 명령 경로의 이동');
+  within(effort.turns, hard ? 6 : 3, hard ? 7 : 4, '최소 명령 경로의 회전');
+  within(effort.commands, hard ? 26 : 12, hard ? 28 : 14, '이동과 회전 명령');
+  assert.equal(effort.program.filter(node => node.op === 'move').length, effort.moves);
+  assert.equal(effort.program.filter(node => node.op === 'left' || node.op === 'right').length, effort.turns);
+  const solved = run(level, effort.program);
+  assert.equal(solved.result.verdict, 'perfect', label + ': 최적 경로를 실제로 실행해서 만점으로 종료한다.');
+  assert.equal(solved.result.total, level.shoppingList.length * 50);
+  assert.equal(solved.engine.bumps, 0);
+  assert.equal(solved.engine.trapHits, 0);
+  assert.equal(solved.engine.actions, effort.commands + level.shoppingList.length + 1);
+  within(solved.engine.actions, hard ? 32 : 16, hard ? 34 : 18, '집기와 종료를 포함한 실행');
+  return effort;
+}
+
 // 난수 지도를 여러 시드로 검증한다. 난이도별 목표의 간격은 유지하되,
 // 안전한 연결 길로 장보기를 짧게 끝내고 막다른 길의 의무적인 왕복은 피한다.
 const metadataSnapshot = structuredClone(LEVELS), ingredientSnapshot = INGREDIENTS.slice();
@@ -411,6 +510,9 @@ for (const metadata of LEVELS) {
     });
     const safe = safeTourMetrics(level.map, targets), label = metadata.name + ' 시드 ' + seed;
     assert(safe.moves <= (hard ? 24 : 12), label + ': 함정 없이 장보기를 짧게 끝낼 수 있어야 한다.');
+    assert(safe.moves >= (hard ? 20 : 9) && safe.moves <= (hard ? 22 : 10),
+      label + ': 회전을 무시한 최단 이동 거리도 같은 난이도 범위를 지켜야 한다.');
+    assertBalancedEffort(level, label);
     assert(safe.cycles >= (hard ? 4 : 2), label + ': 함정을 피하는 연결 길이 여러 개 있어야 한다.');
     assert.equal(safe.targetsOnCycles, targets.length, label + ': 모든 목표에 돌아 나올 수 있는 안전한 길이 있어야 한다.');
     assert.equal(safe.mandatoryRetraces, 0, label + ': 재료를 얻기 위해 같은 막힌 길을 반드시 왕복해서는 안 된다.');
@@ -441,7 +543,7 @@ for (const metadata of LEVELS) {
       else if (FAILURES[cell]) seenFailures.add(cell);
     });
   }
-  assert(fingerprints.size >= 150, '물건 배치가 충분히 다양해야 한다.');
+  assert(fingerprints.size >= 158, '균형 검사 후에도 같은 대체 지도에 몰리지 않고 물건 배치가 다양해야 한다.');
   assert(topologies.size >= (hard ? 140 : 80), '미로의 길 자체도 달라져야 한다.');
   assert(lists.size >= 80, '새 맵에서는 재료 조합도 다양하게 바뀌어야 한다.');
   assert.deepEqual([...seenFoods].sort(), INGREDIENTS.slice().sort(), '두 난이도에서 모든 재료가 나올 수 있어야 한다.');
@@ -451,6 +553,21 @@ for (const metadata of LEVELS) {
   // 극단적인 난수 함수에서도 생성이 종료되고 안전한 지도가 나온다.
   assert.equal(solveSafely(generateLevel(metadata, () => 0)).result.verdict, 'perfect');
   assert.equal(solveSafely(generateLevel(metadata, () => 0.999999)).result.verdict, 'perfect');
+  for (const [name, random] of [
+    ['0 시드', rng(0)], ['최대 32비트 시드', rng(0xffffffff)],
+    ['상수 0', () => 0], ['최소 양수', () => Number.EPSILON],
+    ['상수 0.999999', () => 0.999999], ['상수 1', () => 1],
+    ['경계 교대', (() => { let next = 0; return () => (next ^= 1); })()]
+  ]) {
+    const level = generateLevel(metadata, random), label = metadata.name + ' ' + name;
+    const targets = level.shoppingList.map(item => {
+      const r = level.map.findIndex(row => row.includes(item));
+      return [r, level.map[r].indexOf(item)];
+    });
+    const moves = safeTourMetrics(level.map, targets).moves;
+    assert(moves >= (hard ? 20 : 9) && moves <= (hard ? 22 : 10), label + ': 극단 난수에서도 최단 이동 범위를 유지한다.');
+    assertBalancedEffort(level, label);
+  }
 }
 assert.deepEqual(LEVELS, metadataSnapshot, '지도 생성이 대표 지도와 난이도 정보를 바꾸지 않는다.');
 assert.deepEqual(INGREDIENTS, ingredientSnapshot, '재료를 무작위로 고를 때 원본 재료 목록을 바꾸지 않는다.');
@@ -466,4 +583,4 @@ assert.equal(LEVELS[0].starter.blocks.blocks[0].type, 'nau_start');
 assert.throws(() => generateLevel(99), RangeError);
 assert.throws(() => generateLevel(1, 'seed'), TypeError);
 
-console.log('ALL OK — 엔진 규칙, 모든 함정·실패 엔딩, 무작위 재료, 두 난이도 × 160개 지도');
+console.log('ALL OK — 엔진 규칙, 모든 함정·실패 엔딩, 무작위 재료, 두 난이도 × 160개 지도, 독립 최적 명령 경로와 난수 경계의 균등 난이도');

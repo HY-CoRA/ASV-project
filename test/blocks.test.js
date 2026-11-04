@@ -21,7 +21,10 @@ Blockly.inject = (id, options) => {
 };
 const elements = new Map();
 context.$ = id => {
-  if (!elements.has(id)) elements.set(id, { clientWidth: 0, textContent: '', dataset: {} });
+  if (!elements.has(id)) elements.set(id, {
+    clientWidth: 0, clientHeight: 0, textContent: '', dataset: {},
+    querySelector(selector) { return context.$(id + ' ' + selector); }
+  });
   return elements.get(id);
 };
 context.level = LEVELS[0];

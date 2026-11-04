@@ -132,6 +132,10 @@ var NauEngine = (function () {
 
   var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // 북, 동, 남, 서
   var MAX_YIELDS = 600;
+  var EFFORT_BANDS = {
+    1: { moves: [9, 10], turns: [3, 4], commands: [12, 14] },
+    2: { moves: [20, 22], turns: [6, 7], commands: [26, 28] }
+  };
 
   function shuffle(values, random) {
     for (var i = values.length - 1; i > 0; i--) {
@@ -278,7 +282,46 @@ var NauEngine = (function () {
     return best;
   }
 
+  // 동쪽을 보는 입구에서 시작해 이동과 90도 회전을 각각 한 동작으로 센다.
+  // 같은 최소 동작 수라면 회전이 더 적은 경로를 골라 하나의 기준 풀이를 비교한다.
+  // 집기와 종료는 난이도마다 같은 횟수이므로 이 탐색에서는 제외한다.
+  function efficientTour(map, targets, limit) {
+    var cols = map[0].length, area = map.length * cols, masks = 1 << targets.length;
+    var targetBits = new Uint8Array(area);
+    targets.forEach(function (cell, i) { targetBits[cell[0] * cols + cell[1]] = 1 << i; });
+    var distance = new Int16Array(area * 4 * masks), turns = new Uint16Array(distance.length);
+    var queue = new Uint16Array(distance.length), tail = 1, best = null;
+    distance.fill(-1); distance[1] = 0; queue[0] = 1;
+    function enqueue(state, commands, rotations) {
+      if (distance[state] === -1) {
+        distance[state] = commands; turns[state] = rotations; queue[tail++] = state;
+      } else if (distance[state] === commands && rotations < turns[state]) {
+        // BFS에서 이전 층의 동률 경로는 다음 층을 처리하기 전에 모두 반영된다.
+        turns[state] = rotations;
+      }
+    }
+    for (var head = 0; head < tail; head++) {
+      var state = queue[head], commands = distance[state], rotations = turns[state];
+      if (best && commands > best.commands) break;
+      var dir = state % 4, cell = (state >> 2) % area, mask = Math.floor((state >> 2) / area);
+      if (mask === masks - 1) {
+        if (!best || rotations < best.turns) best = { commands: commands, turns: rotations, moves: commands - rotations };
+        continue;
+      }
+      if (commands >= limit || best) continue;
+      var base = (mask * area + cell) * 4;
+      enqueue(base + (dir + 1) % 4, commands + 1, rotations + 1);
+      enqueue(base + (dir + 3) % 4, commands + 1, rotations + 1);
+      var row = Math.floor(cell / cols) + DIRS[dir][0], col = cell % cols + DIRS[dir][1];
+      if (!map[row] || map[row][col] === undefined || map[row][col] === '#') continue;
+      var next = row * cols + col, nextMask = mask | targetBits[next];
+      enqueue((nextMask * area + next) * 4 + dir, commands + 1, rotations);
+    }
+    return best;
+  }
+
   function chooseTargets(graph, route, count, difficult, random) {
+    var band = EFFORT_BANDS[difficult ? 2 : 1];
     var pool = route.filter(function (cell) {
       return graph.startPaths[cellKey(cell)].length - 1 >= (difficult ? 4 : 2);
     });
@@ -299,7 +342,11 @@ var NauEngine = (function () {
         spread = Math.max(spread, targetPaths[i][cellKey(other)].length - 1);
       }); });
       if (spread < (difficult ? 7 : 4)) continue;
-      if (shortestTour(targets, graph.startPaths, targetPaths) < (difficult ? 14 : 7)) continue;
+      var shortestMoves = shortestTour(targets, graph.startPaths, targetPaths);
+      if (shortestMoves < band.moves[0] || shortestMoves > band.moves[1]) continue;
+      var effort = efficientTour(graph.map, targets, band.commands[1]);
+      if (!effort || effort.commands < band.commands[0] || effort.moves < band.moves[0] || effort.moves > band.moves[1] ||
+          effort.turns < band.turns[0] || effort.turns > band.turns[1]) continue;
       return targets;
     }
     return null;
@@ -312,9 +359,11 @@ var NauEngine = (function () {
     if (random !== undefined && typeof random !== 'function') throw new TypeError('random은 함수여야 합니다.');
     random = random || Math.random;
     var difficult = template.id === 2, targetCount = template.targetCount, map, graph, targets;
-    // 제한된 난수 함수에서도 종료하도록, 반복 실패 후 고정 시드의 안전한 생성기를 쓴다.
-    for (var attempt = 0; attempt < 160; attempt++) {
-      if (attempt === 80) random = seededRandom(template.id * 997);
+    // 재시도도 서로 다른 시드로 이어가 같은 대체 지도에 쏠리지 않게 한다.
+    // 마지막에는 검증된 고정 시드를 사용해 극단적인 난수 함수에서도 종료한다.
+    for (var attempt = 0; attempt < 240; attempt++) {
+      if (attempt === 80) random = seededRandom((Math.floor(random() * 4294967296) >>> 0) ^ (template.id * 997));
+      if (attempt === 160) random = seededRandom(template.id * 997);
       map = makeMaze(template.size, difficult, random);
       graph = safeCore(map, difficult);
       if (!graph) continue;
