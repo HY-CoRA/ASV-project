@@ -490,15 +490,18 @@ var NauEngine = (function () {
     return condition === 'WALL' ? wall : condition === 'NOWALL' && !wall;
   };
 
+  function reserveYield(eng) {
+    if (eng.ended) return false;
+    if (++eng.yields <= MAX_YIELDS) return true;
+    eng.overflow = true;
+    eng.ended = true;
+    return false;
+  }
+
   function* interpret(seq, eng) {
     for (var i = 0; i < seq.length; i++) {
       var node = seq[i];
-      if (eng.ended) return;
-      if (++eng.yields > MAX_YIELDS) {
-        eng.overflow = true;
-        eng.ended = true;
-        return;
-      }
+      if (!reserveYield(eng)) return;
       switch (node.op) {
         case 'move': yield { node: node, ev: eng.move() }; break;
         case 'left': yield { node: node, ev: eng.turn('L') }; break;
@@ -513,6 +516,19 @@ var NauEngine = (function () {
           var ok = eng.cond(node.cond);
           yield { node: node, ev: { type: 'if', ok: ok, cond: node.cond } };
           if (ok) yield* interpret(node.body || [], eng);
+          break;
+        }
+        case 'while':
+        case 'until': {
+          // 첫 조건 검사는 위에서 확보한 한도를 사용한다. 빈 본문도 매번
+          // 조건 이벤트를 내보내므로 화면이 멈추지 않고 같은 한도로 끝난다.
+          while (!eng.ended) {
+            var loopOk = eng.cond(node.cond);
+            yield { node: node, ev: { type: node.op, ok: loopOk, cond: node.cond } };
+            if (eng.ended || (node.op === 'while' ? !loopOk : loopOk)) break;
+            yield* interpret(node.body || [], eng);
+            if (!reserveYield(eng)) return;
+          }
           break;
         }
       }

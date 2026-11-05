@@ -75,7 +75,7 @@ function validateProgram(program) {
         }
         out.n = node.n;
         out.body = readSequence(node.body, depth + 1);
-      } else if (op === 'if') {
+      } else if (['if', 'while', 'until'].includes(op)) {
         allowed.push('cond', 'body');
         if (!['WALL', 'NOWALL'].includes(node.cond)) throw new HttpError(400, '올바른 조건이 아닙니다.');
         out.cond = node.cond;

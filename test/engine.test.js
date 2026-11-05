@@ -8,6 +8,8 @@ const P = { op: 'pick' };
 const C = { op: 'checkout' };
 const repeat = (n, body) => ({ op: 'repeat', n, body });
 const when = (cond, body) => ({ op: 'if', cond, body });
+const whileLoop = (cond, body) => ({ op: 'while', cond, body });
+const untilLoop = (cond, body) => ({ op: 'until', cond, body });
 
 function run(level, program) {
   const engine = new Engine(level);
@@ -100,6 +102,109 @@ assert(engine.checkedOut);
 assert.equal(engine.actions, 3);
 assert.equal(result.verdict, 'incomplete');
 assert.equal(result.total, 50);
+
+// 조건 반복은 본문 실행 전에 검사한다. until은 조건이 참이 되면 멈춘다.
+const loopCorridor = { shoppingList: ['딸기'], map: [['S', '.', '.', '딸기']] };
+for (const { op, build, go, skip, active } of [
+  { op: 'while', build: whileLoop, go: 'NOWALL', skip: 'WALL', active: true },
+  { op: 'until', build: untilLoop, go: 'WALL', skip: 'NOWALL', active: false }
+]) {
+  ({ engine, events, result } = run(loopCorridor, [build(go, [M]), P, C]));
+  assert.deepEqual(events.filter(event => event.type === op), [
+    { type: op, ok: active, cond: go },
+    { type: op, ok: active, cond: go },
+    { type: op, ok: active, cond: go },
+    { type: op, ok: !active, cond: go }
+  ], op + ': 이동 후 조건을 다시 검사하고 종료 검사도 이벤트로 알린다.');
+  assert.deepEqual(events.map(event => event.type), [op, 'move', op, 'move', op, 'move', op, 'pick', 'checkout']);
+  assert.equal(engine.c, 3);
+  assert.equal(engine.actions, 5, '조건 검사는 이동·회전·집기 동작 수에 포함하지 않는다.');
+  assert.equal(engine.bumps, 0);
+  assert.equal(result.verdict, 'perfect');
+  assert.equal(result.total, 50);
+
+  ({ engine, events } = run(loopCorridor, [build(skip, [M, P]), C]));
+  assert.deepEqual(events, [{ type: op, ok: !active, cond: skip }, { type: 'checkout' }]);
+  assert.equal(engine.c, 0, op + ': 처음부터 종료 조건이면 본문을 실행하지 않는다.');
+  assert.deepEqual(engine.collected, []);
+  assert.equal(engine.actions, 1);
+
+  const corner = { shoppingList: ['딸기'], map: [['S', '#'], ['딸기', '#']] };
+  ({ engine, events, result } = run(corner, [build(skip, [R]), M, P, C]));
+  assert.deepEqual(events.filter(event => event.type === op).map(event => event.ok), [active, !active]);
+  assert.equal(engine.d, 2, op + ': 회전으로 바뀐 앞칸도 다음 조건 검사에 반영한다.');
+  assert.equal(engine.actions, 4);
+  assert.equal(result.verdict, 'perfect');
+
+  ({ engine, events } = run(loopCorridor, [build(go, [repeat(3, [when('NOWALL', [C, M])]), P]), M]));
+  assert.deepEqual(events.map(event => event.type), [op, 'repeat', 'if', 'checkout']);
+  assert(engine.checkedOut);
+  assert(!engine.overflow);
+  assert.equal(engine.actions, 1, op + ': 중첩 본문의 종료는 조건 재검사와 나머지 블록을 모두 멈춘다.');
+
+  const failureCorridor = { shoppingList: ['딸기'], map: [['S', '로봇', '딸기']] };
+  ({ engine, events, result } = run(failureCorridor, [M, build(go, [repeat(3, [when('NOWALL', [P, M])]), C]), M, P, C]));
+  assert.deepEqual(events.map(event => event.type), ['move', op, 'repeat', 'if', 'pick']);
+  assert.equal(engine.failure, '로봇');
+  assert.equal(engine.actions, 2);
+  assert(!engine.checkedOut);
+  assert(!engine.overflow);
+  assert.equal(result.verdict, 'easterEgg', op + ': 중첩 본문의 실패도 즉시 실행을 끝낸다.');
+
+  // 본문이 없어도 매 검사에서 제어권을 넘기며 공유 실행 한도로 끝난다.
+  ({ engine, events, result } = run(loopCorridor, [build(go, []), C]));
+  assert.equal(events.length, 600);
+  assert(events.every(event => event.type === op && event.ok === active));
+  assert.equal(engine.actions, 0);
+  assert.equal(engine.yields, 601);
+  assert(engine.ended && engine.overflow);
+  assert(!engine.checkedOut);
+  assert.equal(result.verdict, 'unfinished');
+  engine.reset();
+  assert.equal(engine.yields, 0);
+  assert(!engine.overflow && !engine.ended);
+  Array.from(interpret([build(go, [M]), P, C], engine));
+  assert.equal(score(engine).verdict, 'perfect', op + ': 실행 한도에 걸린 뒤 다시 시작할 수 있다.');
+
+  ({ engine, events } = run(loopCorridor, [repeat(2, [build(go, [])]), C]));
+  assert.equal(events.length, 600);
+  assert.equal(events[0].type, 'repeat');
+  assert.equal(events.filter(event => event.type === op).length, 599,
+    op + ': 바깥 반복과 안쪽 조건 반복이 같은 600단계 한도를 공유한다.');
+  assert(engine.overflow);
+  assert.equal(engine.actions, 0);
+
+  const boxed = { shoppingList: ['딸기'], map: [['S']] };
+  ({ engine, events } = run(boxed, [build(skip, [R]), C]));
+  assert.equal(events.length, 600);
+  assert.equal(events.filter(event => event.type === op).length, 300);
+  assert.equal(events.filter(event => event.type === 'turn').length, 300);
+  assert.equal(engine.actions, 300, op + ': 본문 동작과 조건 검사도 한도를 나눠 쓴다.');
+  assert(engine.overflow && !engine.checkedOut);
+
+  engine = new Engine(loopCorridor);
+  const node = build(go, [M]), generator = interpret([node, C], engine);
+  const first = generator.next();
+  assert.equal(first.value.node, node, '조건 이벤트는 원래 블록을 가리켜 화면에서 강조할 수 있다.');
+  assert.equal(first.value.ev.type, op);
+  engine.ended = true;
+  assert.equal(generator.next().done, true, op + ': 조건 이벤트 뒤 취소하면 본문을 시작하지 않는다.');
+  assert.equal(engine.actions, 0);
+  assert(!engine.overflow);
+}
+
+// 횟수 반복·조건·두 조건 반복을 섞어도 각 위치와 방향에서 다시 판단한다.
+const loopCorner = { shoppingList: ['딸기', '브로콜리'], map: [['S', '딸기'], ['#', '브로콜리']] };
+({ engine, events, result } = run(loopCorner, [repeat(2, [
+  whileLoop('NOWALL', [untilLoop('WALL', [M]), when('WALL', [P, R])])
+]), C]));
+assert.deepEqual(engine.collected, ['딸기', '브로콜리']);
+assert.equal(engine.actions, 7);
+assert.equal(engine.bumps, 0);
+assert.equal(events.filter(event => event.type === 'while').length, 4);
+assert.equal(events.filter(event => event.type === 'until').length, 4);
+assert.equal(result.verdict, 'perfect');
+assert.equal(result.total, 100);
 
 // 고학년 미로는 반복과 조건으로 풀 수 있다. 물건 위를 지나가도 자동으로 담지 않는다.
 const toBanana = [repeat(2, [M]), P, R, when('NOWALL', [M]), R, M, L, M, R, M, L, repeat(2, [M])];
@@ -583,4 +688,4 @@ assert.equal(LEVELS[0].starter.blocks.blocks[0].type, 'nau_start');
 assert.throws(() => generateLevel(99), RangeError);
 assert.throws(() => generateLevel(1, 'seed'), TypeError);
 
-console.log('ALL OK — 엔진 규칙, 모든 함정·실패 엔딩, 무작위 재료, 두 난이도 × 160개 지도, 독립 최적 명령 경로와 난수 경계의 균등 난이도');
+console.log('ALL OK — 엔진 규칙, while/until 조건 반복과 공유 실행 한도, 모든 함정·실패 엔딩, 무작위 재료, 두 난이도 × 160개 지도, 독립 최적 명령 경로와 난수 경계의 균등 난이도');

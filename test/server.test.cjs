@@ -356,6 +356,13 @@ test('server validates levels, names, JSON size, and bounded AST before executin
     [{ op: 'repeat', n: 0, body: [] }], [{ op: 'repeat', n: 21, body: [] }],
     [{ op: 'repeat', n: 1.5, body: [] }], [{ op: 'repeat', n: 2 }],
     [{ op: 'if', cond: 'TRUE', body: [] }], [{ op: 'if', cond: 'WALL', body: null }],
+    ...['while', 'until'].flatMap(op => [
+      [{ op, cond: 'TRUE', body: [] }], [{ op, cond: null, body: [] }],
+      [{ op, body: [] }], [{ op, cond: 'WALL' }], [{ op, cond: 'NOWALL', body: null }],
+      [{ op, cond: 'WALL', body: {} }], [{ op, cond: 'WALL', body: [], n: 3 }],
+      [{ op, cond: 'WALL', body: [{ op: 'eval' }] }],
+      [{ op, cond: 'WALL', body: Array.from({ length: 500 }, () => M) }]
+    ]),
     [C, C], Array.from({ length: 501 }, () => M), deep
   ]) assert.equal((await app.finish(attempt.id, program)).status, 400, JSON.stringify(program).slice(0, 140));
   const invalidJson = await fetch(app.base + '/api/attempts', { method: 'POST', body: '{broken' });
@@ -382,6 +389,53 @@ test('nested repetition obeys engine execution limit even without a finish block
   assert.equal(response.body.checkedOut, false);
   assert(response.body.actions <= 600);
   assert.equal(response.body.blocks, 12);
+});
+
+test('server accepts conditional loops and replays changing wall conditions from its stored map', async t => {
+  const app = await launch(t, { generateLevel: () => ({ map: [['S', '딸기', '.', '#']], shoppingList: ['딸기'] }) });
+  for (const [op, cond] of [['while', 'NOWALL'], ['until', 'WALL']]) {
+    const attempt = (await app.start()).body;
+    const response = await app.finish(attempt.id, [{ op, cond, body: [M, P] }, C], { score: -999, elapsedMs: 0 });
+    assert.equal(response.status, 200, op + ' is a supported serialized block');
+    assert.equal(response.body.result.verdict, 'perfect');
+    assert.equal(response.body.result.total, 50);
+    assert.equal(response.body.actions, 5, 'Two moves and picks precede checkout; the wall stops the loop');
+    assert.equal(response.body.blocks, 5, 'Nested block counts include the start, condition loop, body and checkout');
+    const saved = await app.enter(attempt.id, op + '완료');
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.entry.actions, 5);
+    assert.equal(saved.body.entry.score, 50);
+  }
+  for (const [op, cond] of [['while', 'WALL'], ['until', 'NOWALL']]) {
+    const attempt = (await app.start()).body;
+    const response = await app.finish(attempt.id, [{ op, cond, body: [M, P] }, C]);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.actions, 1, 'A condition already satisfied for stopping skips the body');
+    assert.equal(response.body.result.verdict, 'incomplete');
+    assert.equal(response.body.checkedOut, true);
+  }
+  const nested = (await app.start()).body;
+  const response = await app.finish(nested.id, [{ op: 'repeat', n: 2, body: [
+    { op: 'until', cond: 'WALL', body: [M, P] }
+  ] }, C]);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.result.verdict, 'perfect');
+  assert.equal(response.body.actions, 5);
+  assert.equal(response.body.blocks, 6);
+});
+
+test('empty conditional loops share the execution bound and cannot reach checkout or register', async t => {
+  const app = await launch(t);
+  for (const [op, cond] of [['while', 'NOWALL'], ['until', 'WALL']]) {
+    const attempt = (await app.start()).body;
+    const response = await app.finish(attempt.id, [{ op, cond, body: [] }, C]);
+    assert.equal(response.status, 200, 'An empty loop terminates at the shared execution limit');
+    assert.equal(response.body.actions, 0);
+    assert.equal(response.body.checkedOut, false);
+    assert.equal(response.body.eligible, false);
+    assert.equal(response.body.result.verdict, 'unfinished');
+    assert.equal((await app.enter(attempt.id, '무한반복')).status, 409);
+  }
 });
 
 test('SQLite retains pending sessions, immutable outcomes, and rankings across server restart', async t => {

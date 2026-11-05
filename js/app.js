@@ -356,7 +356,7 @@ function renderShoppingList(container){
 /* ---------- Blockly ---------- */
 var ws=null, toolboxLevel;
 function shoppingToolbox(){
-  var types = ['nau_start', 'nau_move', 'nau_left', 'nau_right', 'nau_pick', 'nau_checkout', 'nau_repeat', 'nau_if'];
+  var types = ['nau_start', 'nau_move', 'nau_left', 'nau_right', 'nau_pick', 'nau_checkout', 'nau_repeat', 'nau_while', 'nau_until', 'nau_if'];
   return { kind:'flyoutToolbox', contents:types.map(function(type){
     return { kind:'block', type:type, gap:12 };
   }) };
@@ -375,6 +375,12 @@ function initBlockly(){
     { type:'nau_pick', message0:'서 있는 물건 집기 ✋', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'' },
     { type:'nau_checkout', message0:'종료하기 🧾', previousStatement:null, style:'finish_blocks', tooltip:'' },
     { type:'nau_repeat', message0:'%1 번 반복하기 🔁', args0:[{ type:'field_number', name:'TIMES', value:3, min:1, max:20, precision:1 }],
+      message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'' },
+    { type:'nau_while', message0:'%1 반복하기 🔁', args0:[{ type:'field_dropdown', name:'COND', options:[
+        ['앞이 길인 동안','NOWALL'], ['앞이 벽인 동안','WALL'] ] }],
+      message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'' },
+    { type:'nau_until', message0:'%1 반복하기 🔁', args0:[{ type:'field_dropdown', name:'COND', options:[
+        ['앞이 벽일 때까지','WALL'], ['앞이 길일 때까지','NOWALL'] ] }],
       message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'' },
     { type:'nau_if', message0:'만약 %1', args0:[{ type:'field_dropdown', name:'COND', options:[
         ['앞에 벽이 있다면','WALL'], ['앞에 벽이 없다면','NOWALL'] ] }],
@@ -427,6 +433,8 @@ function readBlock(b){
     case 'nau_pick': return { op:'pick', id:b.id };
     case 'nau_checkout': return { op:'checkout', id:b.id };
     case 'nau_repeat': return { op:'repeat', id:b.id, n: Math.max(1, Math.min(20, Number(b.getFieldValue('TIMES'))||1)), body: readChain(b.getInputTargetBlock('DO')) };
+    case 'nau_while': return { op:'while', id:b.id, cond:b.getFieldValue('COND'), body: readChain(b.getInputTargetBlock('DO')) };
+    case 'nau_until': return { op:'until', id:b.id, cond:b.getFieldValue('COND'), body: readChain(b.getInputTargetBlock('DO')) };
     case 'nau_if': return { op:'if', id:b.id, cond:b.getFieldValue('COND'), body: readChain(b.getInputTargetBlock('DO')) };
   }
   return { op:'noop', id:b.id };
@@ -520,7 +528,8 @@ async function runProgram(){
     }
     var motion = handleEvent(step.value.ev,run);
     var t = step.value.ev.type;
-    await Promise.all([motion, sleep((t==='repeat'||t==='if')? STEP_DELAY_MS*0.5 : STEP_DELAY_MS)]);
+    var delay = (t==='while'||t==='until') ? 0 : (t==='repeat'||t==='if') ? STEP_DELAY_MS*0.5 : STEP_DELAY_MS;
+    await Promise.all([motion, sleep(delay)]);
   }
   if(!runIsCurrent(run)) return;
   try{ ws.highlightBlock(null); }catch(e){}

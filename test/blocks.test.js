@@ -106,8 +106,46 @@ try {
   assert.equal(program.start, undefined);
   assert.equal(program.ast.length, 0);
   assert.equal(program.blocks, 0, '시작 블록이 없으면 실행할 프로그램도 없다.');
+
+  ws.clear();
+  const loopStart = ws.newBlock('nau_start');
+  const whileBlock = ws.newBlock('nau_while');
+  const untilBlock = ws.newBlock('nau_until');
+  assert.equal(whileBlock.getFieldValue('COND'), 'NOWALL', '동안 반복은 앞이 길인 조건으로 시작한다.');
+  assert.equal(untilBlock.getFieldValue('COND'), 'WALL', '까지 반복은 앞이 벽인 조건으로 시작한다.');
+  const loopMove = ws.newBlock('nau_move');
+  const loopIf = ws.newBlock('nau_if');
+  loopIf.setFieldValue('WALL', 'COND');
+  const loopTurn = ws.newBlock('nau_right');
+  const loopCheckout = ws.newBlock('nau_checkout');
+  untilBlock.setFieldValue('NOWALL', 'COND');
+  loopStart.nextConnection.connect(whileBlock.previousConnection);
+  whileBlock.getInput('DO').connection.connect(loopMove.previousConnection);
+  whileBlock.nextConnection.connect(untilBlock.previousConnection);
+  untilBlock.getInput('DO').connection.connect(loopIf.previousConnection);
+  loopIf.getInput('DO').connection.connect(loopTurn.previousConnection);
+  untilBlock.nextConnection.connect(loopCheckout.previousConnection);
+  program = context.readProgram();
+  assert.equal(program.blocks, 7, '조건 반복과 그 안의 중첩 블록도 센다.');
+  assert.deepEqual(Array.from(program.ast, node => node.op), ['while', 'until', 'checkout']);
+  assert.equal(program.ast[0].cond, 'NOWALL');
+  assert.equal(program.ast[0].body[0].op, 'move');
+  assert.equal(program.ast[1].cond, 'NOWALL', '드롭다운에서 바꾼 종료 조건을 읽는다.');
+  assert.equal(program.ast[1].body[0].body[0].op, 'right');
+  context.updateCount();
+  assert.equal(elements.get('btn-run').dataset.mode, 'submit');
+  engine = new Engine({ shoppingList: [], map: [['S', '.', '.'], ['#', '#', '.']] });
+  Array.from(interpret(program.ast, engine));
+  assert.equal(engine.checkedOut, true);
+  assert.deepEqual([engine.r, engine.c, engine.d], [0, 2, 2], '길인 동안 이동한 뒤, 길을 볼 때까지 회전한다.');
+  assert.equal(engine.actions, 4);
+  for (const grade of LEVELS) {
+    context.level = grade;
+    const types = Array.from(context.shoppingToolbox().contents, block => block.type);
+    assert(types.includes('nau_while') && types.includes('nau_until'), '두 난이도 모두 조건 반복을 제공한다.');
+  }
 } finally {
   ws.dispose();
 }
 
-console.log('ALL OK — 시작 연결 실행, 중첩 블록 수, 시작·종료 복제와 붙여넣기 제한');
+console.log('ALL OK — 시작 연결 실행, 조건 반복 연결과 실행, 중첩 블록 수, 시작·종료 복제와 붙여넣기 제한');
