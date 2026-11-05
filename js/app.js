@@ -79,7 +79,26 @@ function showScene(n){
   window.scrollTo({top:0});
 }
 var toastTimer;
-function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove('on');},2200); }
+
+function toast(msg, center){
+  var t = $('toast');
+  t.textContent = msg;
+
+  // 중앙 안내 메시지 표시
+  t.style.top = center ? '50%' : '';
+  t.style.bottom = center ? 'auto' : '';
+  t.style.transform = center ? 'translate(-50%, -50%)' : '';
+  t.style.fontSize = center ? '26px' : '';
+  t.style.padding = center ? '18px 26px' : '';
+  t.style.borderRadius = center ? '16px' : '';
+
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){
+    t.classList.remove('on');
+  }, 2200);
+}
+
 
 /* ---------- 장바구니 렌더 ---------- */
 function addLayer(basket, item){
@@ -152,7 +171,34 @@ function renderLiveList(cake){
 
 /* ---------- Blockly ---------- */
 var ws=null;
-function loadStarter(){ try{ Blockly.serialization.workspaces.load(level.starter, ws); }catch(e){} }
+
+function loadStarter(){
+  try{
+    var starter = JSON.parse(JSON.stringify(level.starter));
+
+    starter.blocks.blocks.forEach(function(first){
+      var last = first;
+
+      // 마지막 블록 찾기
+      while(last.next && last.next.block){
+        last = last.next.block;
+      }
+
+      // 마지막에 계산하기 자동 추가
+      if(last.type !== 'nau_checkout'){
+        last.next = {
+          block: {type:'nau_checkout'}
+        };
+      }
+    });
+
+    Blockly.serialization.workspaces.load(starter, ws);
+
+  }catch(e){
+    console.error('가이드 블록 불러오기 실패', e);
+  }
+}
+
 function initBlockly(){
   if(ws) return;
   Blockly.defineBlocksWithJsonArray([
@@ -256,11 +302,13 @@ async function runProgram(){
     var prog = readProgram();
 
   // 계산하기 블록이 맨 마지막에 없으면 실행 차단
-  if(!E.validCheckout(prog.ast)){
-    say('계산을 해야해요!');
-    toast('계산을 해야해요!');
-    return;
-  }
+  
+if(!E.validCheckout(prog.ast)){
+  say('계산을 해야해요!');
+  toast('계산을 해야해요!', true);
+  return;
+}
+
 
   // 블록이 서로 떨어져 있으면 실행 차단
   if(prog.chains > 1){
