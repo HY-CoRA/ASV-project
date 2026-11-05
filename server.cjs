@@ -106,6 +106,7 @@ function createServer(options = {}) {
       map_json TEXT NOT NULL,
       shopping_json TEXT NOT NULL,
       started_at INTEGER NOT NULL,
+      activated_at INTEGER,
       elapsed_base_ms INTEGER NOT NULL DEFAULT 0,
       outcome_json TEXT
     );
@@ -153,8 +154,12 @@ function createServer(options = {}) {
     insertChallenge.run(id, level, mapJson, shoppingJson, 'random', '랜덤 도전 · ' + id.slice(-6), createdAt);
     return getChallenge.get(id);
   }
-  // Existing attempts and entries retain their IDs and outcomes. Only associations are added.
+  // Preserve legacy records and clocks; only newly deferred attempts have a null activation.
   transaction(() => {
+    if (!db.prepare('PRAGMA table_info(attempts)').all().some(column => column.name === 'activated_at')) {
+      db.exec(`ALTER TABLE attempts ADD COLUMN activated_at INTEGER;
+        UPDATE attempts SET activated_at = started_at;`);
+    }
     for (const table of ['attempts', 'entries']) {
       if (!db.prepare(`PRAGMA table_info(${table})`).all().some(column => column.name === 'challenge_id')) {
         db.exec(`ALTER TABLE ${table} ADD COLUMN challenge_id TEXT REFERENCES challenges(id)`);
@@ -179,7 +184,8 @@ function createServer(options = {}) {
     (score = ? AND elapsed_ms = ? AND created_at < ?) OR
     (score = ? AND elapsed_ms = ? AND created_at = ? AND id < ?)
   )`);
-  const insertAttempt = db.prepare('INSERT INTO attempts (id, level, map_json, shopping_json, started_at, elapsed_base_ms, challenge_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const insertAttempt = db.prepare('INSERT INTO attempts (id, level, map_json, shopping_json, started_at, activated_at, elapsed_base_ms, challenge_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  const activateAttempt = db.prepare('UPDATE attempts SET activated_at = ? WHERE id = ? AND activated_at IS NULL');
   const saveOutcome = db.prepare('UPDATE attempts SET outcome_json = ? WHERE id = ? AND outcome_json IS NULL');
   const insertEntry = db.prepare('INSERT OR IGNORE INTO entries (attempt_id, name, score, elapsed_ms, level, actions, blocks, verdict, ending, created_at, challenge_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const findDaily = db.prepare('SELECT challenges.* FROM daily_challenges JOIN challenges ON challenges.id = daily_challenges.challenge_id WHERE day = ? AND daily_challenges.level = ?');
@@ -213,6 +219,7 @@ function createServer(options = {}) {
   function attemptById(id) {
     const attempt = getAttempt.get(id);
     if (!attempt) throw new HttpError(404, '이 도전 기록을 찾을 수 없습니다.');
+    // started_at remains the creation timestamp so guide waiting never extends the TTL.
     if (now() - attempt.started_at > ATTEMPT_LIFETIME_MS) throw new HttpError(410, '도전 시간이 만료되었습니다. 새 맵을 시작해주세요.');
     return attempt;
   }
@@ -241,6 +248,7 @@ function createServer(options = {}) {
     if (url.pathname === '/api/attempts' && req.method === 'POST') {
       const body = await readJson(req);
       const level = requireLevel(body.level);
+      if (body.deferStart !== undefined && typeof body.deferStart !== 'boolean') throw new HttpError(400, '시작 대기 여부는 참 또는 거짓이어야 합니다.');
       const mode = body.mode === undefined ? 'random' : body.mode;
       if (!['daily', 'random'].includes(mode)) throw new HttpError(400, '도전 종류를 확인해주세요.');
       if (body.retryOf !== undefined && body.challengeId !== undefined) throw new HttpError(400, '재도전과 공통 지도 중 하나만 선택해주세요.');
@@ -260,21 +268,29 @@ function createServer(options = {}) {
         challenge = ensureChallenge(level, generated.map, generated.shoppingList);
       }
       const map = JSON.parse(challenge.map_json), shoppingList = JSON.parse(challenge.shopping_json);
-      const id = randomUUID(), startedAt = Math.trunc(now());
-      insertAttempt.run(id, level, challenge.map_json, challenge.shopping_json, startedAt, elapsedBaseMs, challenge.id);
+      const id = randomUUID(), createdAt = Math.trunc(now()), startedAt = body.deferStart ? null : createdAt;
+      insertAttempt.run(id, level, challenge.map_json, challenge.shopping_json, createdAt, startedAt, elapsedBaseMs, challenge.id);
       json(res, 201, { id, level, map, shoppingList, startedAt, serverNow: Math.trunc(now()), elapsedBaseMs, challenge: challengeMetadata(challenge) });
       return;
     }
-    const match = /^\/api\/attempts\/([a-zA-Z0-9-]{1,80})\/(finish|entry)$/.exec(url.pathname);
+    const match = /^\/api\/attempts\/([a-zA-Z0-9-]{1,80})\/(start|finish|entry)$/.exec(url.pathname);
     if (match && req.method === 'POST') {
       const body = await readJson(req);
       const attempt = attemptById(match[1]);
+      if (match[2] === 'start') {
+        const serverNow = Math.trunc(now());
+        activateAttempt.run(serverNow, attempt.id);
+        const activated = getAttempt.get(attempt.id);
+        json(res, 200, { id: activated.id, startedAt: activated.activated_at, serverNow, elapsedBaseMs: activated.elapsed_base_ms });
+        return;
+      }
       if (match[2] === 'finish') {
+        if (attempt.activated_at === null) throw new HttpError(409, '안내를 확인하고 도전을 시작해주세요.');
         if (attempt.outcome_json) { json(res, 200, JSON.parse(attempt.outcome_json)); return; }
         const { ast, blocks } = validateProgram(body.program);
         const engine = new Game.Engine({ id: attempt.level, map: JSON.parse(attempt.map_json), shoppingList: JSON.parse(attempt.shopping_json) });
         for (const step of Game.interpret(ast, engine)) { /* Only the shared engine determines the outcome. */ }
-        const elapsedMs = attempt.elapsed_base_ms + Math.max(0, Math.trunc(now()) - attempt.started_at);
+        const elapsedMs = attempt.elapsed_base_ms + Math.max(0, Math.trunc(now()) - attempt.activated_at);
         const outcome = { id: attempt.id, result: Game.score(engine), checkedOut: engine.checkedOut,
           actions: engine.actions, blocks, elapsedMs, eligible: engine.checkedOut || Boolean(engine.failure) };
         const saved = saveOutcome.run(JSON.stringify(outcome), attempt.id);

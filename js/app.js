@@ -94,7 +94,7 @@ function clearItemHighlight(){
   highlightedCell=null; locatingSlot=null;
 }
 function locateItem(item,slot){
-  if(running || mapPending || !attempt || lastResult) return;
+  if(running || mapPending || guideRequired || guideConfirmPending || !attempt || lastResult) return;
   clearItemHighlight();
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     if(eng.map[r][c]!==item) continue;
@@ -106,7 +106,7 @@ function locateItem(item,slot){
   }
 }
 function updateEditorControls(){
-  var disabled=running || mapPending;
+  var disabled=running || mapPending || guideRequired || guideConfirmPending;
   $('btn-zoom-out').disabled=disabled || !ws;
   $('btn-zoom-in').disabled=disabled || !ws;
   $('recipe').querySelectorAll('button').forEach(function(button){ button.disabled=disabled || !attempt || !!lastResult; });
@@ -145,6 +145,7 @@ function placeNau(instant){
 /* ---------- 서버 시도와 풀이 시간 ---------- */
 var attempt=null, sessionRevision=0, mapRequest=0, mapPending=false;
 var timerBase=0, timerStarted=0, timerActive=false;
+var guideRequired=false, guideConfirmPending=false, guideStep=0, guideSequence=0;
 var activeDialogResult=null, hofRequest=0;
 var apiControllers=new Set();
 function elapsedNow(){ return timerBase+(timerActive ? Math.max(0,performance.now()-timerStarted) : 0); }
@@ -182,39 +183,93 @@ function mapBusy(on){
   mapPending=on;
   if(on) clearItemHighlight();
   ['btn-start','btn-new-map','btn-retry','btn-restart'].forEach(function(id){ $(id).disabled=on; });
-  if(!running){ $('btn-run').disabled=on; $('btn-clear').disabled=on; }
   $('level-picker').querySelectorAll('button').forEach(function(button){ button.disabled=on; });
-  updateEditorControls();
+  setRunningUI(running);
 }
 function isCurrent(R){ return lastResult===R && R.revision===sessionRevision && attempt && R.attemptId===attempt.id; }
 function closeNameDialog(){ activeDialogResult=null; if($('name-dialog').open) $('name-dialog').close(); }
 async function newMap(options){
   options=options||{};
-  if(running || mapPending) return false;
+  if(running || mapPending || guideRequired || guideConfirmPending) return false;
   var request=++mapRequest, requestedLevel=level;
   mapBusy(true);
   try{
     var requestBody={level:requestedLevel.id};
     if(options.retryOf) requestBody.retryOf=options.retryOf;
     else requestBody.mode='random';
+    if(options.showGuide) requestBody.deferStart=true;
     var data=await api('attempts',requestBody);
     if(request!==mapRequest || level!==requestedLevel) return false;
     if(!data.challenge || !data.challenge.id) throw new Error('도전 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.');
-    closeNameDialog(); sessionRevision++; hofRequest++;
+    closeNameDialog(); closeGuide(); sessionRevision++; hofRequest++;
     attempt=data; lastResult=null;
+    guideRequired=!!options.showGuide;
+    freezeTimer(Number(data.elapsedBaseMs)||0);
     eng.setLevel({id:level.id,map:data.map,shoppingList:data.shoppingList});
     $('map-label').textContent=level.name;
     $('challenge-label').textContent=data.challenge.label;
     var hadWorkspace=!!ws;
     buildGrid(); resetRun(); showScene(2); initBlockly();
     if(!options.retryOf && !options.keepCode && hadWorkspace){ ws.clear(); loadStarter(); updateCount(); }
-    Blockly.svgResize(ws); startTimer(data);
+    Blockly.svgResize(ws);
+    if(guideRequired) openGuide();
+    else startTimer(data);
     return true;
   }catch(error){
     if(request===mapRequest) toast(error.message);
     return false;
   }finally{
     if(request===mapRequest) mapBusy(false);
+  }
+}
+
+/* ---------- 시작 전 그림 안내 (확인 전에는 서버와 화면 모두 시간 정지) ---------- */
+function renderGuideStep(){
+  document.querySelectorAll('#guide-dialog [data-guide-step]').forEach(function(step){
+    step.classList.toggle('hidden',Number(step.dataset.guideStep)!==guideStep);
+  });
+  $('guide-progress').textContent=(guideStep+1)+' / 3';
+  $('guide-dialog').querySelector('.guide-content').scrollTop=0;
+  $('guide-prev').classList.toggle('hidden',guideStep===0);
+  $('guide-next').classList.toggle('hidden',guideStep===2);
+  $('guide-begin').classList.toggle('hidden',guideStep!==2);
+  ['guide-prev','guide-next','guide-begin'].forEach(function(id){ $(id).disabled=guideConfirmPending; });
+  $('guide-begin').textContent=guideConfirmPending?'준비 중…':'확인했어요! 시작';
+  $('guide-dialog').setAttribute('aria-busy',guideConfirmPending?'true':'false');
+}
+function openGuide(){
+  guideStep=0;
+  $('guide-clock').textContent='⏸ 안내를 보는 동안 시간은 멈춰요';
+  $('guide-error').classList.add('hidden'); $('guide-error').textContent='';
+  renderShoppingList($('guide-targets'));
+  renderGuideStep(); setRunningUI(false);
+  if(!$('guide-dialog').open) $('guide-dialog').showModal();
+}
+function closeGuide(){
+  guideSequence++; guideRequired=false; guideConfirmPending=false;
+  if($('guide-dialog').open) $('guide-dialog').close();
+}
+async function beginGuidedAttempt(){
+  if(!guideRequired || guideConfirmPending || guideStep!==2 || !attempt) return;
+  var id=attempt.id, revision=sessionRevision, request=++guideSequence;
+  function current(){ return guideRequired && !!attempt && attempt.id===id && sessionRevision===revision && guideSequence===request; }
+  guideConfirmPending=true;
+  $('guide-clock').textContent='⏳ 시작을 확인하고 있어요';
+  $('guide-error').classList.add('hidden'); $('guide-error').textContent='';
+  renderGuideStep(); setRunningUI(false);
+  try{
+    var data=await api('attempts/'+encodeURIComponent(id)+'/start',{});
+    if(!current()) return;
+    if(data.id!==id || !Number.isFinite(data.startedAt) || !Number.isFinite(data.serverNow)) throw new Error('시작을 확인하지 못했어요. 다시 눌러주세요.');
+    attempt.startedAt=data.startedAt; attempt.serverNow=data.serverNow; attempt.elapsedBaseMs=data.elapsedBaseMs;
+    closeGuide(); startTimer(data); setRunningUI(false);
+    $('btn-run').focus({preventScroll:true});
+  }catch(error){
+    if(!current()) return;
+    guideConfirmPending=false;
+    $('guide-clock').textContent='↻ 다시 눌러 시작을 확인해 주세요';
+    $('guide-error').textContent=error.message; $('guide-error').classList.remove('hidden');
+    renderGuideStep(); setRunningUI(false);
   }
 }
 async function animatePick(ev,run){
@@ -436,12 +491,14 @@ function handleEvent(ev,run){
 }
 function setRunningUI(on){
   if(on) clearItemHighlight();
-  running=on; $('ws-lock').classList.toggle('on', on);
-  $('btn-run').disabled=on; $('btn-stop').disabled=!on; $('btn-clear').disabled=on; $('btn-new-map').disabled=on;
+  running=on;
+  var locked=on || mapPending || guideRequired || guideConfirmPending;
+  $('ws-lock').classList.toggle('on', locked);
+  $('btn-run').disabled=locked; $('btn-stop').disabled=!on; $('btn-clear').disabled=locked; $('btn-new-map').disabled=locked;
   updateEditorControls();
 }
 async function runProgram(){
-  if(running || mapPending || !attempt || lastResult) return;
+  if(running || mapPending || guideRequired || guideConfirmPending || !attempt || attempt.startedAt===null || lastResult) return;
   ensureAudio();
   var prog = readProgram();
   if(!prog.start){ toast('시작하기 블록을 놓아주세요'); return; }
@@ -483,6 +540,7 @@ async function runProgram(){
 }
 function goHome(){
   clearItemHighlight();
+  closeGuide();
   mapRequest++; sessionRevision++; hofRequest++; runSequence++;
   if(activeRun){
     activeRun.cancelled=true;
@@ -727,13 +785,18 @@ async function renderHof(R){
 
 /* ---------- 이벤트 바인딩 ---------- */
 renderLevelPicker(); updateEditorControls();
-$('btn-start').addEventListener('click',function(){ ensureAudio(); newMap(); });
+$('btn-start').addEventListener('click',function(){ ensureAudio(); newMap({showGuide:true}); });
 $('btn-new-map').addEventListener('click',function(){ newMap({keepCode:true}); });
-$('btn-zoom-out').addEventListener('click',function(){ if(ws && !running && !mapPending) ws.zoomCenter(-1); });
-$('btn-zoom-in').addEventListener('click',function(){ if(ws && !running && !mapPending) ws.zoomCenter(1); });
+$('btn-zoom-out').addEventListener('click',function(){ if(ws && !running && !mapPending && !guideRequired && !guideConfirmPending) ws.zoomCenter(-1); });
+$('btn-zoom-in').addEventListener('click',function(){ if(ws && !running && !mapPending && !guideRequired && !guideConfirmPending) ws.zoomCenter(1); });
 $('btn-run').addEventListener('click',function(){ runProgram(); });
 $('btn-stop').addEventListener('click',function(){ if(running && !lastResult) stopRequested=true; });
-$('btn-clear').addEventListener('click',function(){ if(ws && !running && !mapPending && confirm('블록을 모두 지울까요?')){ ws.clear(); updateCount(); } });
+$('btn-clear').addEventListener('click',function(){ if(ws && !running && !mapPending && !guideRequired && !guideConfirmPending && confirm('블록을 모두 지울까요?')){ ws.clear(); updateCount(); } });
+$('guide-next').addEventListener('click',function(){ if(guideRequired && !guideConfirmPending && guideStep<2){ guideStep++; renderGuideStep(); } });
+$('guide-prev').addEventListener('click',function(){ if(guideRequired && !guideConfirmPending && guideStep>0){ guideStep--; renderGuideStep(); } });
+$('guide-begin').addEventListener('click',beginGuidedAttempt);
+$('guide-cancel').addEventListener('click',goHome);
+$('guide-dialog').addEventListener('cancel',function(event){ event.preventDefault(); goHome(); });
 $('btn-retry').addEventListener('click',async function(){
   var R=lastResult;
   if(!R || !isCurrent(R) || mapPending) return;

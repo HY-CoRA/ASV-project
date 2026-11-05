@@ -2,7 +2,7 @@
 
 const APP_SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = 'asv-game-shell:' + encodeURIComponent(APP_SCOPE.href) + ':';
-const CACHE_NAME = CACHE_PREFIX + 'v1';
+const CACHE_NAME = CACHE_PREFIX + 'v2';
 const SHELL_PATHS = [
   'index.html',
   'css/style.css',

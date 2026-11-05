@@ -77,6 +77,7 @@ async function launch(t, options = {}) {
   }
   return { server, request, temp, base, close, setTime: value => { clock = value; },
     start: body => request('/api/attempts', body || { level: 1 }),
+    activate: (id, body = {}) => request(`/api/attempts/${id}/start`, body),
     finish: (id, program = [C], extra = {}) => request(`/api/attempts/${id}/finish`, { program, ...extra }),
     enter: (id, name) => request(`/api/attempts/${id}/entry`, { name }) };
 }
@@ -112,6 +113,84 @@ test('server creates a map session and replays the stored map with authoritative
   assert.equal(entered.body.entry.score, 50);
   assert.equal(entered.body.entry.elapsedMs, 4321);
   assert.equal(entered.body.rank, 1);
+});
+
+test('guided attempts exclude all guide time and cannot finish until explicitly started', async t => {
+  const app = await launch(t);
+  const prepared = await app.start({ level: 1, deferStart: true });
+  assert.equal(prepared.status, 201);
+  assert.equal(prepared.body.startedAt, null);
+  assert.equal(prepared.body.serverNow, 1_000_000);
+  assert.equal(prepared.body.elapsedBaseMs, 0);
+  const stored = app.server.db.prepare('SELECT started_at, activated_at, outcome_json FROM attempts WHERE id = ?').get(prepared.body.id);
+  assert.deepEqual({ ...stored }, { started_at: 1_000_000, activated_at: null, outcome_json: null });
+  app.setTime(1_060_000);
+  assert.equal((await app.finish(prepared.body.id, [M, P, C])).status, 409);
+  assert.equal((await app.enter(prepared.body.id, '대기중')).status, 409);
+  assert.equal(app.server.db.prepare('SELECT outcome_json FROM attempts WHERE id = ?').get(prepared.body.id).outcome_json, null);
+  const activated = await app.activate(prepared.body.id, { startedAt: 0, elapsedBaseMs: -9999 });
+  assert.deepEqual(activated, { status: 200, body: {
+    id: prepared.body.id, startedAt: 1_060_000, serverNow: 1_060_000, elapsedBaseMs: 0
+  } });
+  const finished = await app.finish(prepared.body.id, [M, P, C]);
+  assert.equal(finished.status, 200);
+  assert.equal(finished.body.elapsedMs, 0, 'A full minute in the guide adds no solving time');
+  assert.equal(finished.body.result.verdict, 'perfect');
+  assert.equal((await app.enter(prepared.body.id, '안내확인')).body.entry.elapsedMs, 0);
+});
+
+test('starting is idempotent under concurrent requests and never resets an already running clock', async t => {
+  const app = await launch(t);
+  const prepared = (await app.start({ level: 1, deferStart: true })).body;
+  app.setTime(1_060_000);
+  const activations = await Promise.all(Array.from({ length: 12 }, () => app.activate(prepared.id)));
+  assert(activations.every(response => response.status === 200 && response.body.startedAt === 1_060_000));
+  app.setTime(1_063_000);
+  const repeated = await app.activate(prepared.id);
+  assert.equal(repeated.body.startedAt, 1_060_000);
+  assert.equal(repeated.body.serverNow, 1_063_000);
+  const finished = (await app.finish(prepared.id, [M, P, C])).body;
+  assert.equal(finished.elapsedMs, 3000, 'Network retries cannot make an existing attempt faster');
+  app.setTime(1_099_000);
+  assert.equal((await app.activate(prepared.id)).body.startedAt, 1_060_000);
+  assert.deepEqual((await app.finish(prepared.id, [])).body, finished);
+  const immediate = (await app.start()).body;
+  app.setTime(1_100_000);
+  assert.equal((await app.activate(immediate.id)).body.startedAt, 1_099_000, 'Legacy immediate attempts keep their original start');
+  assert.equal((await app.activate('missing')).status, 404);
+});
+
+test('deferStart accepts only booleans and false preserves immediate-start compatibility', async t => {
+  const app = await launch(t);
+  for (const deferStart of [null, 0, 1, 'true', {}, []]) {
+    assert.equal((await app.start({ level: 1, deferStart })).status, 400);
+  }
+  const immediate = (await app.start({ level: 1, deferStart: false })).body;
+  assert.equal(immediate.startedAt, 1_000_000);
+  app.setTime(1_002_000);
+  assert.equal((await app.finish(immediate.id)).body.elapsedMs, 2000);
+});
+
+test('a deferred retry preserves the original map and accumulated time while excluding its new guide wait', async t => {
+  let generated = 0;
+  const app = await launch(t, { generateLevel: () => { generated++; return fixture(); } });
+  const first = (await app.start()).body;
+  app.setTime(1_005_000);
+  await app.finish(first.id, [M, P, C]);
+  app.setTime(1_100_000);
+  const retry = (await app.start({ level: 1, retryOf: first.id, deferStart: true })).body;
+  assert.equal(retry.startedAt, null);
+  assert.equal(retry.elapsedBaseMs, 5000);
+  assert.deepEqual(retry.map, first.map);
+  assert.equal(retry.challenge.id, first.challenge.id);
+  app.setTime(1_160_000);
+  assert.equal((await app.finish(retry.id)).status, 409);
+  assert.equal((await app.activate(retry.id)).body.elapsedBaseMs, 5000);
+  app.setTime(1_161_500);
+  const finished = (await app.finish(retry.id, [M, P, C])).body;
+  assert.equal(finished.elapsedMs, 6500);
+  assert.equal(finished.result.verdict, 'perfect');
+  assert.equal(generated, 1);
 });
 
 test('real random ingredient lists are stored, scored, and preserved on same-map retry', async t => {
@@ -328,6 +407,32 @@ test('SQLite retains pending sessions, immutable outcomes, and rankings across s
   assert.equal(retry.elapsedBaseMs, 2000);
 });
 
+test('deferred and activated clocks survive server restart without backfilling a paused guide', async t => {
+  const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asv-guide-persistence-'));
+  const dbPath = path.join(dbDir, 'guide.sqlite');
+  let clock = 1_000_000;
+  const options = { dbPath, now: () => clock };
+  const first = await launch(t, options);
+  t.after(async () => { await first.close(); fs.rmSync(dbDir, { recursive: true, force: true }); });
+  const prepared = (await first.start({ level: 1, deferStart: true })).body;
+  await first.close();
+  clock = 1_060_000;
+  const second = await launch(t, options);
+  t.after(async () => { await second.close(); fs.rmSync(dbDir, { recursive: true, force: true }); });
+  assert.equal(second.server.db.prepare('SELECT activated_at FROM attempts WHERE id = ?').get(prepared.id).activated_at, null);
+  assert.equal((await second.finish(prepared.id)).status, 409);
+  const activated = (await second.activate(prepared.id)).body;
+  assert.equal(activated.startedAt, clock);
+  await second.close();
+  clock = 1_062_000;
+  const third = await launch(t, options);
+  t.after(async () => { await third.close(); fs.rmSync(dbDir, { recursive: true, force: true }); });
+  assert.equal((await third.activate(prepared.id)).body.startedAt, activated.startedAt);
+  const finished = (await third.finish(prepared.id, [M, P, C])).body;
+  assert.equal(finished.elapsedMs, 2000);
+  assert.equal((await third.enter(prepared.id, '재시작')).body.entry.elapsedMs, 2000);
+});
+
 test('expired attempts fail explicitly while published entries remain available', async t => {
   const app = await launch(t);
   const attempt = (await app.start()).body;
@@ -338,6 +443,18 @@ test('expired attempts fail explicitly while published entries remain available'
   assert.equal((await app.enter(attempt.id, '새이름')).status, 410);
   assert.equal((await app.start({ level: 1, retryOf: attempt.id })).status, 410);
   assert.equal((await app.request('/api/leaderboard')).body.total, 1);
+});
+
+test('deferred attempts expire from map creation even when activation happens much later', async t => {
+  const app = await launch(t), lifetime = 24 * 60 * 60 * 1000;
+  const waiting = (await app.start({ level: 1, deferStart: true })).body;
+  const late = (await app.start({ level: 1, deferStart: true })).body;
+  app.setTime(1_000_000 + lifetime - 1);
+  assert.equal((await app.activate(late.id)).status, 200);
+  app.setTime(1_000_000 + lifetime + 1);
+  assert.equal((await app.activate(waiting.id)).status, 410, 'A guide cannot indefinitely extend the attempt lifetime');
+  assert.equal((await app.finish(waiting.id)).status, 410);
+  assert.equal((await app.finish(late.id)).status, 410, 'Activation does not reset the map creation deadline');
 });
 
 test('daily challenges persist one shared Korean-day map across concurrent clients, servers, and restart', async t => {
@@ -498,7 +615,8 @@ test('legacy SQLite schema migrates additively, backfills exact-map groups, and 
   const afterEntries = app.server.db.prepare('SELECT * FROM entries ORDER BY id').all();
   const afterAttempts = app.server.db.prepare('SELECT * FROM attempts ORDER BY id').all();
   assert.deepEqual(afterEntries.map(({ challenge_id, ...entry }) => entry), beforeEntries);
-  assert.deepEqual(afterAttempts.map(({ challenge_id, ...attempt }) => attempt), beforeAttempts);
+  assert.deepEqual(afterAttempts.map(({ challenge_id, activated_at, ...attempt }) => attempt), beforeAttempts);
+  assert(afterAttempts.every(attempt => attempt.activated_at === attempt.started_at), 'Legacy attempts retain their original active start time');
   assert.equal(afterEntries[0].challenge_id, afterEntries[1].challenge_id);
   assert.notEqual(afterEntries[0].challenge_id, afterEntries[2].challenge_id);
   assert.notEqual(afterEntries[0].challenge_id, afterEntries[3].challenge_id);
@@ -512,8 +630,10 @@ test('legacy SQLite schema migrates additively, backfills exact-map groups, and 
   assert.equal(retry.challenge.id, mapId(1, fixture()));
   assert.equal(retry.elapsedBaseMs, 4500);
   assert.deepEqual(retry.map, fixture().map);
+  app.setTime(1_002_000);
   const pendingResult = (await app.finish('legacy-pending', [M, P, C])).body;
   assert.equal(pendingResult.result.total, 50);
+  assert.equal(pendingResult.elapsedMs, 2000, 'Legacy pending sessions continue timing from their original start');
   const pendingEntry = (await app.enter('legacy-pending', '새이름')).body.entry;
   assert(pendingEntry.id > 44, 'Autoincrement IDs are preserved');
   assert.equal(pendingEntry.challengeId, mapId(1, fixture()));
