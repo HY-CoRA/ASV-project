@@ -160,7 +160,7 @@ function initBlockly(){
     { type:'nau_left', message0:'왼쪽으로 돌기 ↩️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'제자리에서 왼쪽으로 90도' },
     { type:'nau_right', message0:'오른쪽으로 돌기 ↪️', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'제자리에서 오른쪽으로 90도' },
     { type:'nau_pick', message0:'여기 물건 담기 ✋', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'나우가 서 있는 칸의 물건을 장바구니에 담아요.' },
-    { type:'nau_checkout', message0:'계산하기 🛒', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'마지막 블록으로 연결해 장보기를 마쳐요.' },
+    { type:'nau_checkout', message0:'계산하기 🛒', previousStatement:null, nextStatement:null, style:'checkout_blocks', tooltip:'마지막 블록으로 연결해 장보기를 마쳐요.' },
     { type:'nau_repeat', message0:'%1 번 반복하기 🔁', args0:[{ type:'field_number', name:'TIMES', value:3, min:1, max:20, precision:1 }],
       message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'안의 블록을 N번' },
     { type:'nau_if', message0:'만약 %1', args0:[{ type:'field_dropdown', name:'COND', options:[
@@ -172,6 +172,7 @@ function initBlockly(){
     blockStyles: {
       move_blocks:   { colourPrimary:'#2F80ED', colourSecondary:'#8DB8F5', colourTertiary:'#1F5FB8' },
       action_blocks: { colourPrimary:'#E6334F', colourSecondary:'#F3A1AE', colourTertiary:'#B2223A' },
+      checkout_blocks: { colourPrimary:'#2FB36B', colourSecondary:'#8FDEAC', colourTertiary:'#21874D' },
       loop_blocks:   { colourPrimary:'#F29E1F', colourSecondary:'#F8CF8D', colourTertiary:'#C27C12' },
       logic_blocks:  { colourPrimary:'#7B61FF', colourSecondary:'#BDB0FF', colourTertiary:'#5A44C9' }
     },
@@ -252,13 +253,20 @@ function highlightStep(node){
 }
 async function runProgram(){
   if(running) return;
-  var prog = readProgram();
-  if(!prog.ast.length){ say('블록을 놓고 연결해 주세요. 가이드 다시 놓기로 시작할 수 있어요.'); return; }
-  if(prog.chains>1){ say('떨어진 블록이 있어요. 위에서 아래로 한 줄로 연결해 주세요.'); toast('블록들을 한 줄로 연결해 주세요'); return; }
-  function hasCheckout(nodes){ return nodes.some(function(n){ return n.op==='checkout' || (n.body && hasCheckout(n.body)); }); }
-  if(hasCheckout(prog.ast) && !E.validCheckout(prog.ast)){
-    say('계산하기는 반복·조건 밖, 맨 마지막에 한 개만 놓아 주세요.');
-    toast('계산하기 블록 위치를 확인해 주세요'); return;
+    var prog = readProgram();
+
+  // 계산하기 블록이 맨 마지막에 없으면 실행 차단
+  if(!E.validCheckout(prog.ast)){
+    say('계산을 해야해요!');
+    toast('계산을 해야해요!');
+    return;
+  }
+
+  // 블록이 서로 떨어져 있으면 실행 차단
+  if(prog.chains > 1){
+    say('블록들을 한 줄로 연결해 주세요!');
+    toast('블록들을 한 줄로 연결해 주세요!');
+    return;
   }
   ensureAudio(); stopRequested=false; setRunningUI(true); resetRun(); say('출발! 연결한 블록을 따라가요.');
   try {
