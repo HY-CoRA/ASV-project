@@ -69,7 +69,6 @@ function selectLevel(lv){
 }
 if(locked){
   var pk=$('level-picker-wrap'); if(pk) pk.classList.add('hidden');
-  $('btn-level').classList.add('hidden');
 }
 
 /* ---------- 장면 전환 ---------- */
@@ -149,7 +148,7 @@ async function api(path, body){
 }
 function mapBusy(on){
   mapPending=on;
-  ['btn-start','btn-new-map','btn-retry','btn-restart'].forEach(function(id){ $(id).disabled=on; });
+  ['btn-start','btn-new-map','btn-retry','btn-restart','btn-preview'].forEach(function(id){ $(id).disabled=on; });
   if(!running){ $('btn-run').disabled=on; $('btn-clear').disabled=on; }
   $('level-picker').querySelectorAll('button').forEach(function(button){ button.disabled=on; });
 }
@@ -352,6 +351,7 @@ function handleEvent(ev){
 function setRunningUI(on){
   running=on; $('ws-lock').classList.toggle('on', on);
   $('btn-run').disabled=on; $('btn-stop').disabled=!on; $('btn-clear').disabled=on; $('btn-new-map').disabled=on;
+  $('btn-preview').disabled=on;
 }
 async function runProgram(){
   if(running || mapPending || returningHome || !attempt || lastResult) return;
@@ -637,11 +637,17 @@ async function returnHome(){
 }
 $('btn-home').addEventListener('click',returnHome);
 $('btn-restart').addEventListener('click',returnHome);
-$('btn-level').addEventListener('click',async function(){
-  await returnHome();
-  var selected=$('level-picker').querySelector('[aria-pressed="true"]');
-  if(selected) selected.focus();
+$('btn-preview').addEventListener('click',function(){
+  if(running || mapPending || !attempt) return;
+  var list=$('recipe').closest('.shopping-panel').cloneNode(true);
+  list.querySelector('#recipe').removeAttribute('id');
+  var map=gridEl.cloneNode(true);
+  map.removeAttribute('id');
+  map.setAttribute('aria-label','현재 마트 지도 미리보기');
+  $('preview-content').replaceChildren(list,map);
+  $('preview-dialog').showModal();
 });
+$('btn-preview-close').addEventListener('click',function(){ $('preview-dialog').close(); });
 $('btn-name-entry').addEventListener('click',function(){ if(lastResult) openNameDialog(lastResult); });
 $('name-form').addEventListener('submit',submitName);
 $('name-skip').addEventListener('click',skipNameDialog);

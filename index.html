@@ -66,7 +66,7 @@
       <div class="ws-lock" id="ws-lock"></div>
     </div>
     <div class="controls">
-      <button type="button" class="btn ghost" id="btn-level">레벨 바꾸기</button>
+      <button type="button" class="btn ghost" id="btn-preview">미리보기</button>
       <button class="btn" id="btn-run">▶ 실행</button>
       <button class="btn ghost" id="btn-stop" disabled>■ 멈춤</button>
       <button class="btn ghost" id="btn-clear">🧹 블록 지우기</button>
@@ -130,6 +130,13 @@
   </footer>
 </section>
 </main>
+<dialog class="preview-dialog" id="preview-dialog" aria-labelledby="preview-title">
+  <div class="preview-heading">
+    <h2 id="preview-title">마트 미리보기</h2>
+    <button type="button" class="btn ghost" id="btn-preview-close">닫기</button>
+  </div>
+  <div id="preview-content"></div>
+</dialog>
 <dialog class="name-dialog" id="name-dialog" aria-labelledby="name-title" aria-describedby="name-summary">
   <form id="name-form" novalidate>
     <div class="name-dialog-icon" aria-hidden="true">🏅</div>
