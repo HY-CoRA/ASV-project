@@ -3,67 +3,120 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>코딩으로 쌓는 병맛 효도 케이크 — 데모</title>
+<title>나우의 장보기 대작전 · 코딩으로 쌓는 병맛 효도 케이크</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/wardrobe.css">
+<link rel="stylesheet" href="css/journey.css">
 </head>
 <body>
 <header class="top">
-  <div class="brand">🎂 코딩으로 쌓는 병맛 효도 케이크 <span class="hint" id="level-label"></span></div>
-  <div class="steps" aria-label="진행 단계"><span id="st1" class="on">1 인트로</span><span id="st2">2 코딩·실행</span><span id="st3">3 결과</span></div>
+  <div class="brand"><span class="brand-icon" aria-hidden="true"></span><span>나우의 장보기 대작전<small>ASV 코딩 아케이드</small></span><span class="hint" id="level-label"></span></div>
+  <div class="steps" aria-label="진행 단계"><span id="st1" class="on" aria-current="step"><b>01</b> 출발</span><span id="st2"><b>02</b> 장보기</span><span id="st3"><b>03</b> 케이크</span></div>
 </header>
 
 <main>
 <!-- ============ 장면 1: 인트로 ============ -->
 <section id="scene-intro" class="intro">
-  <div>
-    <h1>병맛 효도 케이크</h1>
-    <p class="sub">우당탕탕! 나우의 장보기 대작전</p>
-    <p class="story">오늘은 사랑하는 엄마의 생신! 길치인 <b>나우</b>를 도와 마트에서 케이크 재료를 사 와야 해요. 하지만 코딩을 한 칸이라도 틀리면… 케이크에 양말이나 벽돌이 들어갈지도 몰라요.</p>
-    <ol>
-      <li>블록을 끌어다 나우가 움직일 순서를 짜요.</li>
-      <li>실행하면 나우가 마트를 돌며 앞에 있는 물건을 집어요.</li>
-      <li>집은 순서 그대로 케이크가 쌓여요. 빵 → 생크림 → 빵 → 생크림 → 토핑 → 초 가 정답!</li>
-    </ol>
-    <div id="level-picker-wrap" class="picker-wrap">
-      <h2 style="font-family:var(--display);font-weight:normal;font-size:20px;margin:0 0 8px">레벨 고르기</h2>
-      <div class="level-picker" id="level-picker"></div>
+  <div class="journey-hero">
+    <div class="journey-copy">
+      <p class="journey-kicker">✦ &nbsp; 오늘의 장보기 모험</p>
+      <h1>나우의<br><span>장보기 대작전!</span></h1>
+      <p class="story">햇살 좋은 날, 엄마의 생일 케이크를 만들러 가요. 바구니를 들고 마트로 출발! 블록을 연결해 나우에게 길을 알려 주세요.</p>
+      <div class="intro-start-actions">
+        <button class="btn big" id="btn-start">▶ 마트로 출발</button>
+        <button class="btn ghost" id="btn-wardrobe">✦ 나우 꾸미기</button>
+      </div>
+      <p class="journey-caption">코딩으로 쌓는 병맛 효도 케이크</p>
     </div>
-    <button class="btn big" id="btn-start">▶ 게임 시작하기</button>
+    <figure class="journey-scene">
+      <img src="assets/sunny-village.svg" alt="파란 하늘 아래 나우의 집에서 분홍 지붕 마트까지 이어지는 꽃길">
+      <span class="scene-avatar" data-nau-avatar aria-hidden="true"></span>
+      <figcaption><span>나우의 집</span><span>햇살 마트</span></figcaption>
+    </figure>
   </div>
-  <div class="hero">
-    <div class="mom">엄마: "…나우야, 이게 뭐니?" 😭</div>
-    <div class="cake" id="hero-cake" style="width:260px;font-size:16px"></div>
-    <div class="tag">엄마 생신 D-DAY</div>
+  <div class="journey-trail" aria-label="모험 순서">
+    <div><span class="trail-index">01</span><p><b>집에서 출발</b><small>장바구니를 챙겨요</small></p></div>
+    <div><span class="trail-index">02</span><p><b>마트에서 장보기</b><small>블록으로 재료를 찾아요</small></p></div>
+    <div><span class="trail-index">03</span><p><b>케이크 완성</b><small>집은 순서대로 쌓아요</small></p></div>
+  </div>
+  <div id="level-picker-wrap" class="picker-wrap">
+    <div class="journey-section-title"><div><p class="journey-kicker">오늘의 코스</p><h2>어떤 마트로 갈까요?</h2></div><span class="hint">코스를 고르고 위의 출발 버튼을 눌러요.</span></div>
+    <div class="level-picker" id="level-picker"></div>
+  </div>
+</section>
+
+<!-- ============ 나우의 작은 옷장 ============ -->
+<section id="scene-wardrobe" class="wardrobe hidden" aria-labelledby="wardrobe-title">
+  <div class="wardrobe-heading">
+    <div><p class="wardrobe-eyebrow">NAU’S LITTLE CLOSET <span aria-hidden="true">✦</span></p><h1 id="wardrobe-title" tabindex="-1">나우의 작은 옷장<span>오늘은 어떤 나우로 장보러 갈까요?</span></h1></div>
+    <button class="closet-back" id="wardrobe-cancel">← 돌아가기</button>
+  </div>
+  <div class="wardrobe-layout">
+    <div class="closet-studio">
+      <div class="studio-top"><span>나만의 장보기 친구</span><span aria-hidden="true">✧ ✦ ✧</span></div>
+      <div class="character-switch" role="group" aria-label="캐릭터 선택"><button type="button" data-character="girl" aria-pressed="true">여자 나우</button><button type="button" data-character="boy" aria-pressed="false">남자 나우</button></div>
+      <div class="closet-stage">
+        <span class="stage-spark s1" aria-hidden="true">✦</span><span class="stage-spark s2" aria-hidden="true">✧</span><span class="stage-spark s3" aria-hidden="true">+</span>
+        <div id="wardrobe-avatar" class="wardrobe-avatar" role="img" aria-label="꾸미는 나우"></div>
+        <div class="stage-plinth" aria-hidden="true"></div>
+        <span class="stage-label">장보기 준비 중!</span>
+      </div>
+      <div class="studio-caption"><span class="pixel-flower" aria-hidden="true">✿</span><div><b id="wardrobe-character-name">여자 나우</b><span id="wardrobe-look-name">오늘의 장보기 룩</span></div><span id="wardrobe-basket-preview" aria-hidden="true"></span></div>
+      <div class="skin-picker"><span>피부색</span><div id="wardrobe-skins" role="group" aria-label="피부색 선택"></div></div>
+      <p class="studio-note">머리도, 옷도, 바구니도!<br>좋아하는 조합으로 자유롭게 골라요.</p>
+    </div>
+    <div class="closet-dresser">
+      <div class="dresser-heading"><div><p class="wardrobe-eyebrow">MAKE IT YOURS</p><h2>좋아하는 걸 골라봐요 <span aria-hidden="true">♡</span></h2></div><span class="closet-stamp">모두 자유롭게<br>사용 가능!</span></div>
+      <div id="wardrobe-tabs" class="closet-tabs" role="tablist" aria-label="꾸미기 종류">
+        <button id="closet-tab-hair" role="tab" aria-selected="true" aria-controls="wardrobe-options" data-category="hair">머리</button>
+        <button id="closet-tab-outfit" role="tab" aria-selected="false" aria-controls="wardrobe-options" data-category="outfit" tabindex="-1">의상</button>
+        <button id="closet-tab-accessory" role="tab" aria-selected="false" aria-controls="wardrobe-options" data-category="accessory" tabindex="-1">소품</button>
+        <button id="closet-tab-basket" role="tab" aria-selected="false" aria-controls="wardrobe-options" data-category="basket" tabindex="-1">장바구니</button>
+      </div>
+      <div class="closet-section-label"><h3 id="wardrobe-category-title">머리 모양</h3><span>마음에 드는 하나를 콕!</span></div>
+      <div id="wardrobe-options" class="closet-options" role="tabpanel" aria-labelledby="closet-tab-hair"></div>
+      <div id="wardrobe-hair-colors" class="hair-colors"><span>머리 색</span><div id="wardrobe-colors" role="group" aria-label="머리 색 선택"></div></div>
+      <div class="closet-selection" role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true">✦</span><p id="wardrobe-description"></p></div>
+      <div class="closet-footer"><button id="wardrobe-reset" class="closet-reset">기본 모습으로</button><button id="wardrobe-save" class="closet-save">이 모습으로 준비 완료 <span aria-hidden="true">→</span></button></div>
+      <p id="wardrobe-save-note" class="closet-footnote">꾸미기는 점수와 능력에 영향을 주지 않아요. 이 브라우저에만 저장돼요.</p>
+    </div>
   </div>
 </section>
 
 <!-- ============ 장면 2+3: 코딩 / 실행 ============ -->
 <section id="scene-play" class="play hidden">
+  <div class="journey-section-title scene-heading">
+    <div><p class="journey-kicker">02 · 장보기</p><h1>햇살 마트에 도착!</h1></div>
+    <span class="scene-note">블록으로 길을 짜고 재료를 차례대로 담아요.</span>
+  </div>
   <div class="panel">
-    <div class="bubble"><span class="who" id="bubble-who">🧒</span><span id="bubble-text">블록을 조립하고 실행을 눌러요!</span></div>
+    <div class="bubble"><span class="who" id="bubble-who">🧒</span><span id="bubble-text" role="status">블록을 조립하고 실행을 눌러요!</span></div>
+    <div class="market-board">
+    <div class="market-sign"><b>햇살 마트 지도</b><button class="btn ghost" id="btn-iso" aria-pressed="false">입체 보기</button></div>
     <div class="grid-wrap" id="grid-wrap">
       <div class="grid" id="grid" aria-label="마트 지도 8x8"></div>
     </div>
-    <div style="display:flex;justify-content:flex-end"><button class="btn ghost" id="btn-iso" aria-pressed="false">🧊 입체 보기</button></div>
     <div class="legend">
-      <span><b style="background:#D9F2E3"></b>입구</span>
-      <span><b style="background:#FFF6D6"></b>재료 선반</span>
-      <span><b style="background:#EEDCFF"></b>함정</span>
-      <span><b style="background:#FFD6D6"></b>다이너마이트</span>
-      <span><b style="background:#8C7A66"></b>벽</span>
-      <span><b style="background:#D9E8FF"></b>계산대</span>
+      <span><b class="key-floor"></b>통로</span>
+      <span><b class="key-item"></b>재료 선반</span>
+      <span><b class="key-trap"></b>함정</span>
+      <span><b class="key-boom"></b>다이너마이트</span>
+      <span><b class="key-wall"></b>벽</span>
+      <span><b class="key-start"></b>입구</span>
+      <span><b class="key-end"></b>계산대</span>
+    </div>
     </div>
     <div class="sticker">
-      <h2>🎂 목표 케이크 (아래부터)</h2>
+      <h2>목표 케이크 <span class="hint">아래층부터</span></h2>
       <div class="recipe" id="recipe"></div>
       <p class="hint" style="margin:10px 0 0">물건은 집어도 사라지지 않아요. 같은 선반에서 또 집어도 돼요.</p>
     </div>
     <div class="sticker cart">
       <div>
-        <h2>🛒 장바구니 (실시간 쌓기)</h2>
+        <h2><span data-nau-basket class="basket-badge" aria-hidden="true"></span> 장바구니 (실시간 쌓기)</h2>
         <div class="cake" id="live-cake"></div>
       </div>
       <div class="list" id="live-list">아직 아무것도 없음</div>
@@ -72,7 +125,7 @@
 
   <div class="workspace-wrap">
     <div class="sticker" style="padding:12px">
-      <h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">🧩 블록 코딩 <span class="hint">왼쪽 서랍에서 블록을 끌어와 위에서 아래로 연결해요</span></h2>
+      <h2 class="coding-title">나우의 장보기 계획 <span class="hint">왼쪽 서랍에서 블록을 끌어와 위에서 아래로 연결해요.</span></h2>
       <div style="position:relative">
         <div id="blocklyDiv"></div>
         <div class="ws-lock" id="ws-lock"></div>
@@ -104,14 +157,20 @@
 
 <!-- ============ 장면 4: 결과 ============ -->
 <section id="scene-result" class="result hidden">
+  <div class="journey-section-title scene-heading">
+    <div><p class="journey-kicker">03 · 케이크</p><h1>오늘의 장보기 일기</h1></div>
+    <span class="scene-note">장바구니에 담은 순서대로 케이크를 쌓아요.</span>
+  </div>
   <div class="panel">
     <div class="sticker verdict">
+      <div class="result-nau" data-nau-avatar aria-hidden="true"></div>
       <div class="big" id="res-emoji">🎉</div>
       <h2 id="res-title">완벽한 케이크!</h2>
       <p id="res-sub">효도 성공! 감동의 눈물!</p>
       <div id="res-badge"></div>
     </div>
     <div class="sticker cakebox">
+      <h2>나우의 케이크</h2>
       <div class="cake big" id="res-cake" style="max-width:320px"></div>
     </div>
   </div>
@@ -136,6 +195,7 @@
     <div class="actions">
       <button class="btn" id="btn-retry">🔄 다시 도전 (블록 유지)</button>
       <button class="btn ghost" id="btn-restart">처음으로</button>
+      <button class="btn ghost" id="btn-res-wardrobe">✦ 나우 꾸미기</button>
     </div>
   </div>
 </section>
@@ -145,6 +205,8 @@
 <script src="vendor/blockly.min.js"></script>
 <script src="vendor/blockly_ko.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/wardrobe.js"></script>
+<script src="js/journey-art.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

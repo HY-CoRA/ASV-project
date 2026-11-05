@@ -1,6 +1,7 @@
 (function(){
 'use strict';
 var E = NauEngine, ITEMS = E.ITEMS;
+var art = NauJourneyArt;
 var $ = function(id){ return document.getElementById(id); };
 
 /* ---------- 효과음 (WebAudio, 파일 없음) ---------- */
@@ -52,13 +53,14 @@ function renderLevelPicker(){
   E.LEVELS.forEach(function(lv){
     var card = document.createElement('button'); card.type='button'; card.className='level-card'+(lv.id===level.id?' on':'');
     card.setAttribute('aria-pressed', lv.id===level.id?'true':'false');
-    var recipe = lv.recipe.map(function(k){ return E.KIND_EMOJI[k].slice(0,2); }).join(' → ');
-    card.innerHTML = '<b>'+lv.name+'</b><span class="who">'+lv.who+'</span><span class="rc">'+recipe+'</span><span class="ds">'+lv.desc+'</span>';
-    card.addEventListener('click', function(){ selectLevel(lv); });
+    var recipe = lv.recipe.map(function(k){ return art.recipe(k, lv.id===1); }).join(' › ');
+    card.innerHTML = '<span class="level-tag">코스 '+String(lv.id).padStart(2,'0')+'</span><b>'+lv.name.split(' · ')[1]+'</b><span class="who">'+lv.who+'</span><span class="rc" aria-hidden="true">'+recipe+'</span><span class="ds">'+lv.desc+'</span>';
+    card.addEventListener('click', function(){ selectLevel(lv); box.querySelector('[aria-pressed="true"]').focus(); });
     box.appendChild(card);
   });
   $('level-label').textContent = level.name;
-  $('btn-start').textContent = '▶ '+level.name.split(' · ')[0]+' 시작하기';
+  $('btn-start').textContent = '▶ 마트로 출발';
+  $('btn-start').setAttribute('aria-label', level.name+' · 마트로 출발');
 }
 function selectLevel(lv){
   level = lv; eng.setLevel(lv);
@@ -70,9 +72,16 @@ if(locked){ var pk=$('level-picker-wrap'); if(pk) pk.classList.add('hidden'); }
 /* ---------- 장면 전환 ---------- */
 function showScene(n){
   $('scene-intro').classList.toggle('hidden', n!==1);
+  $('scene-wardrobe').classList.toggle('hidden', n!==4);
   $('scene-play').classList.toggle('hidden', n!==2);
   $('scene-result').classList.toggle('hidden', n!==3);
-  $('st1').classList.toggle('on', n===1); $('st2').classList.toggle('on', n===2); $('st3').classList.toggle('on', n===3);
+  ['st1','st2','st3'].forEach(function(id, index){
+    var active = index + 1 === (n===4 ? 1 : n);
+    var step = $(id);
+    step.classList.toggle('on', active);
+    if(active) step.setAttribute('aria-current','step');
+    else step.removeAttribute('aria-current');
+  });
   window.scrollTo({top:0});
 }
 var toastTimer;
@@ -89,7 +98,7 @@ function addLayer(cakeEl, item){
   var e = cakeEl.querySelector('.empty'); if(e) e.remove();
   var d = document.createElement('div');
   d.className = layerClass(item);
-  d.textContent = ITEMS[item].emoji + ' ' + ITEMS[item].label;
+  d.innerHTML = art.icon(item) + ' ' + ITEMS[item].label;
   cakeEl.appendChild(d);
 }
 function resetCake(cakeEl, withPlate, emptyText){
@@ -101,7 +110,6 @@ function explode(cakeEl){
   var f=document.createElement('div'); f.className='fire'; f.textContent='💥'; cakeEl.appendChild(f);
   Array.prototype.forEach.call(cakeEl.querySelectorAll('.layer'), function(l,i){ l.style.transform='rotate('+((i%2?1:-1)*(8+i*4))+'deg) translateX('+((i%2?1:-1)*12)+'px)'; l.style.opacity='.55'; });
 }
-(function(){ var h=$('hero-cake'); resetCake(h,true); ['빵','생크림','양말','벽돌','딸기'].forEach(function(i){ addLayer(h,i); }); })();
 
 /* ---------- 지도 ---------- */
 var gridEl = $('grid'), nauEl;
@@ -114,23 +122,34 @@ function buildGrid(){
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var v = eng.map[r][c], d=document.createElement('div'); d.className='cell';
     if(v==='#'){ d.classList.add('wall'); }
-    else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">🚪</span><small>입구</small>'; }
-    else if(v==='E'){ d.classList.add('end'); d.innerHTML='<span class="b">🛒</span><small>계산대</small>'; }
-    else if(ITEMS[v]){ d.classList.add(ITEMS[v].kind==='boom'?'boom': ITEMS[v].kind==='trap'?'trap':'item'); d.innerHTML='<span class="b">'+ITEMS[v].emoji+'</span><small>'+v+'</small>'; }
+    else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">'+art.icon('입구')+'</span><small>입구</small>'; }
+    else if(v==='E'){ d.classList.add('end'); d.innerHTML='<span class="b">'+art.icon('계산대')+'</span><small>계산대</small>'; }
+    else if(ITEMS[v]){
+      d.classList.add('shelved', ITEMS[v].kind==='boom'?'boom': ITEMS[v].kind==='trap'?'trap':'item');
+      d.innerHTML='<span class="b">'+art.icon(v)+'</span><small>'+v+'</small>';
+    } else { d.classList.add('floor'); }
     d.title = v==='#'?'선반': v==='S'?'입구': v==='E'?'계산대': ITEMS[v]? ITEMS[v].label+' 선반' : '통로';
     gridEl.appendChild(d);
   }
   nauEl=document.createElement('div'); nauEl.className='nau';
   nauEl.style.width=(100/eng.cols)+'%'; nauEl.style.height=(100/eng.rows)+'%';
-  nauEl.innerHTML='<span class="body">🧒</span><span class="dir">▲</span>'; gridEl.appendChild(nauEl);
+  nauEl.innerHTML='<span class="body">'+NauWardrobe.avatar(eng.d)+'</span><span class="dir">▲</span>'; gridEl.appendChild(nauEl);
 }
 function placeNau(instant){
   if(instant) nauEl.style.transition='none';
   nauEl.style.left=(eng.c*100/eng.cols)+'%'; nauEl.style.top=(eng.r*100/eng.rows)+'%';
   nauEl.querySelector('.dir').style.transform='rotate('+(eng.d*90)+'deg)';
+  nauEl.querySelector('.body').innerHTML=NauWardrobe.avatar(eng.d);
+  nauEl.setAttribute('role','img');
+  nauEl.setAttribute('aria-label','나우 · '+['북쪽','동쪽','남쪽','서쪽'][eng.d]+'을 보고 있어요');
   if(instant){ void nauEl.offsetWidth; nauEl.style.transition=''; }
 }
-function say(text, who){ $('bubble-text').textContent=text; $('bubble-who').textContent=who||'🧒'; }
+function say(text, who){
+  $('bubble-text').textContent=text;
+  $('bubble-who').classList.toggle('nau-portrait', !who);
+  if(who) $('bubble-who').textContent=who;
+  else $('bubble-who').innerHTML=NauWardrobe.avatar(2);
+}
 
 /* ---------- 레시피 슬롯 ---------- */
 var recipeEl=$('recipe');
@@ -139,13 +158,22 @@ function renderRecipe(cake){
   var good = cake.filter(function(i){ return ITEMS[i].kind!=='trap' && ITEMS[i].kind!=='boom'; });
   eng.recipe.forEach(function(kind, i){
     var s=document.createElement('div'); s.className='slot';
-    s.innerHTML='<span class="n">'+(i+1)+'층</span><span class="e">'+E.KIND_EMOJI[kind]+'</span>'+E.KIND_LABEL[kind];
-    if(good[i]){ s.classList.add(ITEMS[good[i]].kind===kind?'done':'bad'); }
+    var singleTopping = level.id===1;
+    var label = kind==='topping' && singleTopping ? '딸기' : E.KIND_LABEL[kind];
+    s.innerHTML='<span class="n">'+(i+1)+'층</span><span class="e">'+art.recipe(kind, singleTopping)+'</span>'+label;
+    if(good[i]){
+      var matches = ITEMS[good[i]].kind===kind;
+      s.classList.add(matches?'done':'bad');
+      var status = document.createElement('span');
+      status.className='slot-status';
+      status.textContent=matches?'✓ 맞아요':'× 순서 오류';
+      s.appendChild(status);
+    }
     recipeEl.appendChild(s);
   });
 }
 function renderLiveList(cake){
-  $('live-list').textContent = cake.length? cake.map(function(i){return ITEMS[i].emoji+' '+i;}).join(', ') : '아직 아무것도 없음';
+  $('live-list').textContent = cake.length ? cake.join(' → ') : '아직 담은 재료가 없어요.';
 }
 
 /* ---------- Blockly ---------- */
@@ -167,12 +195,12 @@ function initBlockly(){
   var theme = Blockly.Theme.defineTheme('nau', {
     base: Blockly.Themes.Zelos,
     blockStyles: {
-      move_blocks:   { colourPrimary:'#2F80ED', colourSecondary:'#8DB8F5', colourTertiary:'#1F5FB8' },
-      action_blocks: { colourPrimary:'#E6334F', colourSecondary:'#F3A1AE', colourTertiary:'#B2223A' },
-      loop_blocks:   { colourPrimary:'#F29E1F', colourSecondary:'#F8CF8D', colourTertiary:'#C27C12' },
-      logic_blocks:  { colourPrimary:'#7B61FF', colourSecondary:'#BDB0FF', colourTertiary:'#5A44C9' }
+      move_blocks:   { colourPrimary:'#3974A2', colourSecondary:'#8DBAD7', colourTertiary:'#295478' },
+      action_blocks: { colourPrimary:'#AD4D70', colourSecondary:'#E6A0B7', colourTertiary:'#803954' },
+      loop_blocks:   { colourPrimary:'#9C661E', colourSecondary:'#E8BA71', colourTertiary:'#79501B' },
+      logic_blocks:  { colourPrimary:'#6C5B9E', colourSecondary:'#C1B3DD', colourTertiary:'#514477' }
     },
-    componentStyles: { workspaceBackgroundColour:'#FFFDF5', flyoutBackgroundColour:'#F3E9D2', flyoutOpacity:1, scrollbarColour:'#C9B99A', insertionMarkerColour:'#1F1A14', insertionMarkerOpacity:0.3 },
+    componentStyles: { workspaceBackgroundColour:'#FFFDF4', flyoutBackgroundColour:'#DCEFE7', flyoutOpacity:1, scrollbarColour:'#98B4AB', insertionMarkerColour:'#314B56', insertionMarkerOpacity:0.4 },
     fontStyle: { family:"'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif", weight:'normal', size:13 }
   });
   var toolbox = { kind:'flyoutToolbox', contents:[
@@ -266,13 +294,14 @@ async function runProgram(){
 
 /* ---------- 결과 ---------- */
 var VERDICTS = {
-  perfect:{ emoji:'🎉', title:'완벽한 케이크!', sub:'효도 성공! 감동의 눈물! 😭💖' },
-  weird:{ emoji:'🔪', title:'이상한 케이크', sub:'엄마가 케이크를 자르다가 칼이 부러졌습니다. "…이게 뭐야?"' },
-  empty:{ emoji:'😭', title:'빈손…', sub:'마트 구경만 하고 왔나요? 등짝 스매싱! 💥' },
-  boom:{ emoji:'💥', title:'폭발 엔딩', sub:'케이크 대신 폭죽이… 생신 파티는 소방서에서 하게 됐어요.' }
+  perfect:{ emoji:'✦', title:'완벽한 케이크!', sub:'오늘의 장보기 성공! 엄마에게 생일 케이크를 선물해요.' },
+  weird:{ emoji:'✿', title:'이상한 케이크', sub:'어떤 재료를 어느 순서로 집었는지 확인하고 다시 도전해 봐요.' },
+  empty:{ emoji:'○', title:'빈 장바구니', sub:'재료가 있는 선반 앞에서 집기 블록을 써 보세요.' },
+  boom:{ emoji:'💥', title:'폭발 엔딩', sub:'다이너마이트를 집었어요. 블록을 고쳐 다른 선반으로 가 봐요.' }
 };
 function showResult(){
   var R = lastResult, v = VERDICTS[R.res.verdict];
+  $('res-emoji').parentElement.dataset.verdict=R.res.verdict;
   $('res-emoji').textContent=v.emoji; $('res-title').textContent=v.title; $('res-sub').textContent=v.sub;
   var title = E.rankTitle(R.res, R.blocks, R.level);
   $('res-badge').innerHTML = title? '<span class="title-badge">🏷️ 칭호: '+title+'</span>' : '';
@@ -283,7 +312,7 @@ function showResult(){
   if(!R.res.rows.length){ tb.innerHTML='<tr><td colspan="4" style="color:var(--muted)">아무것도 집지 않았어요.</td></tr>'; }
   R.res.rows.forEach(function(row,i){
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+(i+1)+'</td><td>'+row.emoji+' '+row.label+'</td><td>'+row.verdict+'</td><td class="pts '+(row.pts>0?'plus':'minus')+'">'+(row.pts>0?'+':'')+row.pts+'</td>';
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+art.icon(R.cake[i])+' '+row.label+'</td><td>'+row.verdict+'</td><td class="pts '+(row.pts>0?'plus':'minus')+'">'+(row.pts>0?'+':'')+row.pts+'</td>';
     tb.appendChild(tr);
   });
   var ck=$('res-cake'); resetCake(ck, true, R.cake.length? '' : '텅 빈 접시…');
@@ -311,6 +340,18 @@ function renderHof(mine){
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
 /* ---------- 이벤트 바인딩 ---------- */
+NauWardrobe.init();
+document.querySelector('.brand-icon').innerHTML=art.icon('케이크');
+function openWardrobe(from,trigger){
+  showScene(4);
+  NauWardrobe.open(function(applied,saved){
+    showScene(from); trigger.focus();
+    if(applied) toast(saved?'나우의 장보기 준비 완료!':'지금 모습으로 준비 완료! 이 브라우저에서는 저장이 안 돼요.');
+  });
+}
+$('btn-wardrobe').addEventListener('click',function(){openWardrobe(1,this);});
+$('btn-res-wardrobe').addEventListener('click',function(){openWardrobe(3,this);});
+window.addEventListener('nau-look-change',function(){if(nauEl) placeNau(true);});
 renderLevelPicker();
 $('btn-start').addEventListener('click', function(){
   showScene(2); buildGrid(); resetRun(); renderRecipe([]); say('블록을 조립하고 실행을 눌러요!');

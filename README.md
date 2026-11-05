@@ -4,6 +4,9 @@
 
 - 플레이: https://hy-cora.github.io/ASV-project/ (GitHub Pages)
 - 기획·규칙·미결 사항: [docs/spec.md](docs/spec.md)
+- 캐릭터·의상·장바구니 꾸미기: [docs/wardrobe.md](docs/wardrobe.md)
+
+인트로의 꽃길과 햇살 마트, 재료 도트는 프로젝트용으로 직접 그린 SVG입니다. 풍경은 `assets/sunny-village.svg`, 재료 그림은 `js/journey-art.js`에 있습니다.
 
 ## 실행
 
@@ -29,6 +32,7 @@ docs/spec.md        개발 명세
 
 ```bash
 node test/engine.test.js   # 마지막 줄 ALL OK
+node test/wardrobe.test.js # 꾸미기 저장 데이터 및 방향 검사
 ```
 
 ## 배포
