@@ -10,6 +10,7 @@ function itemIcon(key){
     (index%4*100/3)+'% '+(index<4?0:100)+'%"></span>';
 }
 function boardIcon(key){
+  if(key==='나우') return '<span class="pixel-nau" aria-hidden="true"></span>';
   var index=['나우','물웅덩이','미끄럼','입구'].indexOf(key);
   return '<span class="pixel-board" aria-hidden="true" style="background-position:'+(index*100/3)+'% 0"></span>';
 }
@@ -93,8 +94,9 @@ function buildGrid(){
   gridEl.setAttribute('aria-label','마트 지도 '+eng.rows+'x'+eng.cols);
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var v = eng.map[r][c], d=document.createElement('div'); d.className='cell';
-    d.classList.toggle('tile-alt',(r+c)%2===1);
-    if(v==='#'){ d.classList.add('wall'); }
+    d.style.setProperty('--tile-x',((r*5+c*3)%4*100/3)+'%');
+    d.style.setProperty('--wall-x',((Math.floor(c/2)+r)%3*100/3)+'%');
+    if(v==='#'){ d.classList.add('wall'); d.setAttribute('aria-label','지나갈 수 없는 벽'); }
     else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">'+boardIcon('입구')+'</span><small>입구</small>'; }
     else if(HAZARDS[v]){ d.classList.add('hazard'); d.innerHTML='<span class="b">'+boardIcon(v)+'</span><small>'+HAZARDS[v].label+'</small>'; }
     else if(ITEMS[v]){ d.classList.add('item'); d.innerHTML='<span class="b">'+itemIcon(v)+'</span><small>'+v+'</small>'; }
@@ -420,8 +422,9 @@ function renderResultRoute(){
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var key=r+','+c, value=eng.map[r][c], cell=document.createElement('div');
     cell.className='cell';
-    cell.classList.toggle('tile-alt',(r+c)%2===1);
-    if(value==='#') cell.classList.add('wall');
+    cell.style.setProperty('--tile-x',((r*5+c*3)%4*100/3)+'%');
+    cell.style.setProperty('--wall-x',((Math.floor(c/2)+r)%3*100/3)+'%');
+    if(value==='#'){ cell.classList.add('wall'); cell.setAttribute('aria-label','지나갈 수 없는 벽'); }
     else if(value==='S'){ cell.classList.add('start'); cell.innerHTML='<span class="b">'+boardIcon('입구')+'</span>'; }
     else if(HAZARDS[value]){ cell.classList.add('hazard'); cell.innerHTML='<span class="b">'+boardIcon(value)+'</span>'; }
     else if(ITEMS[value]){ cell.classList.add('item'); cell.innerHTML='<span class="b">'+itemIcon(value)+'</span>'; }
