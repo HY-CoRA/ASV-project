@@ -1,0 +1,30 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>장보기 UI 시나리오 검증</title>
+<style>body{margin:0;font:14px system-ui;background:#e9edf2}header{padding:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}button,select,input{font:inherit;padding:5px}input{width:65px}iframe{display:block;border:0;background:white}#status{font-size:12px}</style>
+<header><label>시나리오 <select id="scenario"></select></label><button id="load">예제 블록 불러오기</button><label>너비 <input id="width" type="number" value="1280"></label><label>높이 <input id="height" type="number" value="720"></label><button id="resize">크기 적용</button><span id="status" role="status">게임의 실제 실행 버튼으로 테스트합니다.</span></header>
+<div style="padding:0 10px 8px"><label>테마 <select id="theme"><option value="light">밝음</option><option value="dark">어두움</option></select></label> <button id="cleanup">검증용 순위 기록 정리</button></div>
+<iframe id="game" title="장보기 게임 검증 화면" src="../index.html"></iframe>
+<script src="../js/engine.js"></script><script src="scenario-data.js"></script>
+<script>
+const frame=document.getElementById('game'), chooser=document.getElementById('scenario'), status=document.getElementById('status');
+ShoppingScenarios.cases.forEach((c,i)=>chooser.add(new Option(c.name,i)));
+function resize(){frame.style.width=document.getElementById('width').value+'px';frame.style.height=document.getElementById('height').value+'px';}
+document.getElementById('resize').onclick=resize;resize();
+document.getElementById('theme').onchange=()=>{frame.contentDocument.documentElement.dataset.theme=document.getElementById('theme').value;};
+document.getElementById('cleanup').onclick=()=>{
+  for(const id of [1,2]){const key='nau_shopping_hof_v1_L'+id,list=JSON.parse(localStorage.getItem(key)||'[]');localStorage.setItem(key,JSON.stringify(list.filter(e=>e.name!=='UI검증_L1' && e.name!=='UI검증_L2')));}
+  status.textContent='UI검증_L1/L2 기록만 정리했습니다.';
+};
+document.getElementById('load').onclick=()=>{
+  const sample=ShoppingScenarios.cases[chooser.value];status.textContent='불러오는 중…';
+  frame.onload=()=>{
+    const w=frame.contentWindow,d=w.document; d.documentElement.dataset.theme=document.getElementById('theme').value; d.getElementById('btn-start').click();
+    const ws=w.Blockly.getMainWorkspace(), root=ShoppingScenarios.blocks(sample.seq);
+    root.x=24;root.y=24; const blocks=[root];
+    if(sample.extra){const extra=ShoppingScenarios.blocks(sample.extra);extra.x=300;extra.y=24;blocks.push(extra);}
+    ws.clear();w.Blockly.serialization.workspaces.load({blocks:{languageVersion:0,blocks}},ws);w.Blockly.svgResize(ws);
+    const speed=d.getElementById('speed');speed.value='3';speed.dispatchEvent(new w.Event('input'));
+    status.textContent=sample.name+' — 실행 버튼으로 시작하세요.';
+  };
+  frame.src='../index.html?level='+sample.level+'&fixture='+Date.now();
+};
+</script></html>

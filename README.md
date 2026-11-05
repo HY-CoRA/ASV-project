@@ -22,7 +22,7 @@
 
 ## 구현 상태
 
-현재 체크아웃한 소스 코드는 개편 전 버전이다. 이 README와 문서는 개편의 목표 기준을 설명하며, 실제 게임 코드와 배포 페이지는 구현이 끝날 때까지 이전 동작을 보여줄 수 있다.
+`tomatolovers` 작업본에 장보기 개편을 구현했다. 두 레벨의 전체 실행·계산·결과·재도전 및 엔진 회귀 테스트를 통과했다. 화면 검증에서 발견한 장바구니 간격을 보정했으며, 마지막 CSS 보정 후 추가 화면 테스트는 사용자 요청에 따라 생략했다. 완료 범위와 남은 확인 사항은 [UI 검증 기록](docs/qa-report.md)을 참고한다.
 
 ## 실행
 
@@ -40,7 +40,7 @@ css/style.css       화면 스타일과 반응형 레이아웃
 js/engine.js        레벨 데이터, 이동과 블록 실행, 점수 계산
 js/app.js           Blockly, 게임 화면, 결과 화면과 UI 동작
 vendor/             Blockly 및 한국어 메시지
-test/engine.test.js 엔진 동작 테스트 (개편 구현 시 새 명세에 맞춰 갱신)
+test/engine.test.js 장보기 엔진 회귀 테스트
 docs/spec.md        프로젝트 개요 및 기준 문서 링크
 docs/shopping-game-rework.md  구현 요구사항, 완료 기준과 확인 시나리오
 ```
@@ -48,3 +48,11 @@ docs/shopping-game-rework.md  구현 요구사항, 완료 기준과 확인 시�
 ## 게시
 
 프로젝트는 GitHub Pages를 통해 게시한다. 배포 설정과 동작은 코드 개편 및 검토 후 확인한다.
+
+## 검증
+
+```bash
+node test/engine.test.js
+```
+
+로컬 서버에서 `test/browser-scenarios.html`을 열면 완주·함정·계산 오류 등의 예제 블록을 불러올 수 있다. 예제는 테스트 페이지에서만 입력하며, 실행·점수·결과 표시는 실제 게임 코드를 사용한다. 일반 플레이 진입점은 `index.html`이다.

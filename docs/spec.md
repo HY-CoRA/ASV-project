@@ -33,7 +33,7 @@
 | `js/engine.js` | 레벨 데이터, 이동 및 명령 실행, 점수 계산 |
 | `js/app.js` | Blockly, 화면 전환, 장바구니 및 결과 UI |
 | `vendor/` | Blockly 라이브러리와 한국어 메시지 |
-| `test/engine.test.js` | 엔진 동작 테스트. 개편 구현 시 새 명세와 일치하도록 갱신 |
+| `test/engine.test.js` | 장보기 엔진 회귀 테스트. 전체 경로, 점수, 조건, 초기화와 실행 상한 검증 |
 
 ## 실행
 
@@ -44,3 +44,7 @@ python3 -m http.server 8000
 ```
 
 브라우저에서 `http://localhost:8000`으로 접속한다.
+
+## 검증 기록
+
+구현 후 실행 흐름과 화면 검증 결과는 [UI 검증 기록](qa-report.md)에 기록한다. 요구사항의 단일 기준은 계속 [작업 명세](shopping-game-rework.md)다.
