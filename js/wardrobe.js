@@ -69,24 +69,32 @@ function avatarSVG(p,dir){
   }else{
     s+=rect(29,64,6,12,'#fff4de')+rect(61,64,6,12,'#fff4de')+rect(46,63,4,25,'#fff4de')+rect(37,85,22,3,'#686199')+path('M56 66L58 70H62L59 73L60 77L56 75L53 77L54 73L51 70H55Z','#ffe08b')+rect(35,88,26,8,'#53576f')+rect(46,89,4,7,edge);
   }
-  // Face and side ears. Expressions remain legible at small sizes.
-  s+=rect(27,29,7,13,skin)+rect(62,29,7,13,skin)+path('M33 22H61V26H65V44H61V50H56V54H40V50H34V45H31V28H33Z',skin);
-  s+=rect(34,42,7,4,'#eea4a3')+rect(56,42,7,4,'#eea4a3')+rect(37,32,8,2,hc.dark)+rect(53,32,8,2,hc.dark);
-  s+=rect(37,35,8,9,'#fff9ee')+rect(53,35,8,9,'#fff9ee')+rect(39,35,6,8,edge)+rect(53,35,6,8,edge)+rect(40,35,2,3,'#ffffff')+rect(54,35,2,3,'#ffffff')+rect(46,47,6,2,'#bd727b');
-  s+=path('M29 19H33V15H38V12H57V15H63V20H66V31H59V26H55V32H50V25H45V30H40V25H35V32H29Z',hc.base)+rect(35,17,22,3,hc.light)+rect(31,22,4,7,hc.light);
+  // Draw one complete head per direction; never paint a profile over a front face.
+  if(dir===0){
+    s+=path('M29 22H65V43H61V49H56V53H40V49H34V43H29Z',hc.base)+rect(33,26,3,16,hc.light)+rect(38,46,20,3,hc.dark);
+    if(p.hair==='long')s+=rect(31,43,34,25,hc.base)+rect(34,45,3,18,hc.light)+rect(38,66,20,3,hc.dark);
+  }else if(dir===1||dir===3){
+    // Mirror the entire profile so the eye, nose, smile and fringe stay aligned.
+    s+='<g'+(dir===3?' transform="translate(96 0) scale(-1 1)"':'')+'>';
+    s+=path('M41 23H59V27H64V35H68V40H64V47H60V51H53V54H43V48H38V29H41Z',skin);
+    s+=rect(38,35,7,10,skin)+rect(39,38,3,4,'#d7957f');
+    s+=rect(54,32,7,2,hc.dark)+rect(55,36,6,7,edge)+rect(56,36,2,2,'#ffffff');
+    s+=rect(52,44,6,3,'#eea4a3')+rect(59,47,4,2,'#bd727b');
+    s+=path('M29 19H33V15H38V12H57V15H63V22H60V27H53V25H48V30H44V36H39V43H32V36H29Z',hc.base);
+    s+=rect(35,17,22,3,hc.light)+rect(31,24,4,9,hc.light);
+    s+='</g>';
+  }else{
+    s+=rect(27,31,7,11,skin)+rect(62,31,7,11,skin)+path('M33 22H61V26H65V44H61V50H56V54H40V50H34V45H31V28H33Z',skin);
+    s+=rect(34,43,6,3,'#eea4a3')+rect(57,43,6,3,'#eea4a3');
+    s+=rect(37,32,7,2,hc.dark)+rect(53,32,7,2,hc.dark);
+    s+=rect(38,36,6,7,edge)+rect(54,36,6,7,edge)+rect(39,36,2,2,'#ffffff')+rect(55,36,2,2,'#ffffff');
+    s+=rect(45,47,2,2,'#bd727b')+rect(47,49,4,2,'#bd727b')+rect(51,47,2,2,'#bd727b');
+    s+=path('M29 19H33V15H38V12H57V15H63V20H66V29H59V26H55V30H50V25H45V29H40V25H35V31H29Z',hc.base)+rect(35,17,22,3,hc.light)+rect(31,22,4,7,hc.light);
+  }
   if(p.hair==='short')s+=path('M30 16H35V11H39V7H44V11H57V15H64V20H59V17H47V22H41V18H36V23H30Z',hc.base)+rect(37,13,18,3,hc.light);
   if(p.accessory==='ribbon')s+=path('M55 16V7H60L65 11L70 7H76V17H70L65 14L60 18Z','#d66b95')+rect(63,10,5,7,'#ffa7c4')+rect(57,9,3,4,'#ffcad8');
   if(p.accessory==='cap')s+=path('M28 19V12H33V8H59V12H65V22H24V19Z','#eac46d')+rect(31,12,28,6,'#ffe8a1')+rect(24,22,47,5,'#b99054')+rect(44,12,7,6,'#fff9da');
   if(p.accessory==='headphones')s+=path('M23 34V19H27V12H34V8H61V12H68V19H72V36H67V20H63V15H33V20H28V34Z','#a5dcd8')+rect(21,29,9,17,'#d2f5e7')+rect(24,33,4,10,'#70b7bd')+rect(65,29,9,17,'#d2f5e7')+rect(67,33,4,10,'#70b7bd');
-  // Back and side views retain outfit, hair and a clear facing silhouette.
-  if(dir===0){
-    s+=path('M29 24H65V43H61V49H56V53H40V49H34V43H29Z',hc.base)+rect(33,26,3,16,hc.light)+rect(38,46,20,3,hc.dark);
-    if(p.hair==='long')s+=rect(31,43,34,25,hc.base)+rect(34,45,3,18,hc.light)+rect(38,66,20,3,hc.dark);
-  }
-  if(dir===1||dir===3){
-    var faceX=dir===1?46:31,eyeX=dir===1?58:33;
-    s+=rect(31,29,34,17,hc.base)+rect(faceX,29,19,17,skin)+rect(eyeX,35,5,7,edge)+rect(eyeX,35,2,2,'#fff9ee')+rect(dir===1?58:34,44,5,3,'#eea4a3');
-  }
   s+='<g transform="translate(62 73) scale(.66)">'+basketBody(p.basket)+'</g>';
   return svg(s);
 }
