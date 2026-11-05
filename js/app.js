@@ -94,6 +94,7 @@ function buildGrid(){
   gridEl.setAttribute('aria-label','마트 지도 '+eng.rows+'x'+eng.cols);
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var v = eng.map[r][c], d=document.createElement('div'); d.className='cell';
+    d.classList.toggle('tile-alt',(r+c)%2===1);
     if(v==='#'){ d.classList.add('wall'); }
     else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">'+boardIcon('입구')+'</span><small>입구</small>'; }
     else if(HAZARDS[v]){ d.classList.add('hazard'); d.innerHTML='<span class="b">'+boardIcon(v)+'</span><small>'+HAZARDS[v].label+'</small>'; }
@@ -419,6 +420,7 @@ function renderResultRoute(){
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var key=r+','+c, value=eng.map[r][c], cell=document.createElement('div');
     cell.className='cell';
+    cell.classList.toggle('tile-alt',(r+c)%2===1);
     if(value==='#') cell.classList.add('wall');
     else if(value==='S'){ cell.classList.add('start'); cell.innerHTML='<span class="b">'+boardIcon('입구')+'</span>'; }
     else if(HAZARDS[value]){ cell.classList.add('hazard'); cell.innerHTML='<span class="b">'+boardIcon(value)+'</span>'; }

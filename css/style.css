@@ -142,9 +142,8 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .grid-wrap .grid{width:100%}
 .grid{
   display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));
-  aspect-ratio:1;border:12px solid transparent;container-type:inline-size;
-  border-image:url('../assets/flower-frame.svg') 16 / 12px / 0 round;
-  border-radius:0;overflow:hidden;background:var(--floor);background-clip:padding-box;position:relative;
+  aspect-ratio:1;border:1px solid #D4CBB8;container-type:inline-size;
+  border-radius:4px;overflow:hidden;background:#FFFCF4;background-clip:padding-box;position:relative;
 }
 .cell{
   border:1px solid color-mix(in srgb,var(--line) 45%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -166,11 +165,19 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
   background-repeat:no-repeat;image-rendering:pixelated;
 }
 .cell{
-  background:#DBB37F url('../assets/terrain-tiles.webp') 50% 0 / 300% 100% no-repeat;
-  border:0;box-shadow:none;image-rendering:pixelated;
+  background:#FFFCF4;
+  border:0;box-shadow:inset -1px -1px #B9A98320;image-rendering:pixelated;
 }
-.cell.wall{background-position:100% 0;border-color:transparent}
-.cell.start,.cell.picked{background-position:0 0}
+.cell.tile-alt{background:#F3E8CF}
+.cell.wall{
+  background:#91A2AE;
+  box-shadow:inset 2px 2px #C1CED5,inset -2px -2px #687C8B;
+}
+.cell.wall::before{
+  content:"";position:absolute;inset:12%;
+  border:2px solid #718695;border-top-color:#CBD5DB;border-left-color:#CBD5DB;
+  background:#A9B8C1;
+}
 .grid .cell .b{
   display:flex;align-items:center;justify-content:center;
   width:100%;height:70%;line-height:0;flex-shrink:0;
@@ -181,7 +188,7 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .grid .cell.hazard .b .pixel-board{width:94%;height:100%;aspect-ratio:auto}
 .grid .cell small{
   font:700 clamp(10px,2.8cqw,16px)/1.1 var(--body);
-  color:#25351E;background:#FFF8E7E8;padding:1px 3px;
+  color:#25354B;background:#FFFFFFE8;padding:1px 3px;
   border-radius:3px;max-width:100%;flex-shrink:0;
 }
 .cell.picked .b{opacity:0}
@@ -197,7 +204,6 @@ main{width:100%;max-width:1480px;margin:0 auto;padding:12px max(12px,env(safe-ar
 .nau.bump{animation:shake .35s}
 .nau.picking .body{animation:reach-down .76s ease-in-out}
 .nau.slipping .body{animation:slip .7s ease-in-out}
-.cell.hazard{background-position:0 0}
 .cell.hazard.triggered .b{opacity:.4}
 .item-flight{position:fixed;z-index:80;line-height:1;pointer-events:none;filter:drop-shadow(0 4px 3px #0003)}
 .trap-loss{position:absolute;top:-10%;color:#C3223A;font:bold .8em var(--display);text-shadow:0 1px #fff;animation:loss-rise .7s ease-out forwards}
@@ -339,7 +345,7 @@ td.pts.plus{color:var(--green)}td.pts.minus{color:var(--red)}
 .result-grid{width:100%;max-width:420px;flex:none;box-shadow:none;container-type:inline-size}
 .result-grid .cell{font-size:clamp(12px,2vw,22px)}
 .result-grid .cell small{font-size:8px}
-.route-visited{background:color-mix(in srgb,var(--floor) 60%,#2F80ED 40%)}
+.cell.route-visited{background:#DBEAF8}
 .route-visited::before{content:'';position:absolute;inset:36%;border-radius:50%;background:#2F80ED;opacity:.6;pointer-events:none}
 .route-end{outline:3px solid #E6334F;outline-offset:-3px;z-index:1}
 .route-marker{position:absolute;inset:0;z-index:2;display:grid;place-items:center;font-family:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif;font-size:1.2em}
