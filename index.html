@@ -9,9 +9,6 @@
 <meta name="apple-mobile-web-app-title" content="나우마트">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>나우의 심부름 장보기</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
@@ -19,52 +16,25 @@
 </head>
 <body>
 <header class="top">
-  <div class="header-identity">
-    <div class="brand">🛒 나우의 심부름 장보기 <span class="hint" id="level-label"></span></div>
-    <div class="map-meta hidden" id="play-meta"><span id="map-label">초1–3</span><span class="challenge-label" id="challenge-label"></span></div>
-  </div>
-  <button class="btn ghost install-button hidden" id="btn-install" type="button">📲 앱 설치</button>
-  <div class="map-actions hidden" id="play-actions">
-    <button class="btn ghost" id="btn-home" type="button">🏠 홈으로</button>
-    <button class="btn ghost" id="btn-new-map" type="button">🎲 새 맵</button>
-  </div>
-  <div class="timer-wrap hidden" id="timer-wrap"><span aria-hidden="true">⏱️</span><span>풀이 시간</span><time id="solve-timer" role="timer" aria-label="풀이 시간">00:00.0</time></div>
+  <button type="button" class="brand" id="btn-home" aria-label="나우의 심부름 장보기 첫 화면으로"><span class="shop-cart" aria-hidden="true">🛒</span><span class="brand-title">나우의 심부름 장보기</span> <span class="hint" id="level-label"></span></button>
+  <div class="header-tools"><button class="wood-install hidden" id="btn-install" type="button"><span class="install-pixel-icon" aria-hidden="true"></span><span>앱 설치</span></button><div class="timer-wrap hidden" id="timer-wrap"><span aria-hidden="true">⏱️</span><span>풀이 시간</span><time id="solve-timer" role="timer" aria-label="풀이 시간">00:00.0</time></div><button class="wood-new-map" id="btn-new-map" aria-label="새 맵"><svg aria-hidden="true" viewBox="0 0 32 32"><path d="M16 2 29 9v15l-13 7L3 24V9Z" fill="#eee9da" stroke="#302a29" stroke-width="2"/><path d="m3 9 13 7 13-7M16 16v15" fill="none" stroke="#70665a"/><g fill="#3d3936"><circle cx="16" cy="8" r="2"/><circle cx="9" cy="17" r="1.7"/><circle cx="11" cy="23" r="1.7"/><circle cx="22" cy="17" r="1.7"/><circle cx="24" cy="23" r="1.7"/></g></svg><span>새 맵</span></button></div>
 </header>
-<div class="connection-note hidden" id="connection-note" role="status">인터넷 연결이 끊겼어요. 새 지도와 기록 저장은 연결 후에 이용할 수 있어요.</div>
 
+<div class="connection-note hidden" id="connection-note" role="status">연결이 끊겼어요. 새 지도와 기록 저장은 연결 후 이용해 주세요.</div>
 <main>
 <!-- ============ 장면 1: 인트로 ============ -->
 <section id="scene-intro" class="intro">
   <div class="intro-start">
-    <div class="intro-welcome">
-      <div class="intro-eyebrow">반가워요, 여기는 나우마트!</div>
-      <h1>오늘은 내가<br><span>장보기 대장!</span></h1>
-      <p class="intro-subtitle">나우와 함께 떠나는 맛있는 심부름 모험</p>
-      <div class="intro-market" aria-hidden="true">
-        <span class="market-spark spark-one">✦</span><span class="market-spark spark-two">✦</span>
-        <div class="market-bubble">장바구니 준비 완료!</div>
-        <div class="market-shop">
-          <div class="market-sign"><span>✳</span> 나우마트 <span>✳</span></div>
-          <div class="market-awning"></div>
-          <div class="market-window"><span>싱싱한 모험이 가득!</span><div>🥦 🍓 🥕</div></div>
-          <div class="market-door"><span>OPEN</span><i></i></div>
-          <div class="market-produce"><span>🍎 🍋</span><span>🥬 🍆</span></div>
-        </div>
-        <div class="market-path"></div>
-        <div class="market-shopper"><span class="shopper-face">🧒</span><span class="shopper-cart">🛒</span></div>
-        <div class="market-sticker">오늘도<br>신나는 발견!</div>
-      </div>
-      <div class="intro-discover"><span>🥕 재료 16종</span><span>🎁 깜짝 엔딩 10종</span><span>🎲 매번 새로운 지도</span></div>
+    <div class="intro-art">
+      <img src="assets/shopping-pixel-title.webp" width="1672" height="941" alt="나우의 심부름 장보기. 장바구니를 들고 마트로 향하는 도트 캐릭터 나우" fetchpriority="high">
     </div>
-    <div class="sticker intro-challenge">
-      <div class="intro-card-heading"><span class="intro-card-icon" aria-hidden="true">🛍️</span><div><span class="intro-card-kicker">나의 장보기 미션</span><h2>랜덤 도전</h2></div><span class="intro-ready">준비됐나요?</span></div>
-      <div class="mission"><div class="mission-title"><strong>오늘 담을 재료</strong><span>시작할 때 공개!</span></div><div class="mission-items" id="mission-items"></div></div>
-      <div id="level-picker-wrap" class="picker-wrap">
-        <h2>어떤 모험을 떠날까요?</h2>
-        <div class="level-picker" id="level-picker"></div>
-      </div>
-      <button class="btn big" id="btn-start" type="button">장보기 출발!</button>
-      <p class="intro-start-note">가장 멋진 장보기 기록에 도전해요 🏆</p>
+    <div class="intro-menu">
+    <h1 class="visually-hidden">나우의 심부름 장보기</h1>
+    <div id="level-picker-wrap" class="picker-wrap">
+      <h2 class="visually-hidden" id="level-picker-title">난이도 고르기</h2>
+      <div class="level-picker" id="level-picker" role="group" aria-labelledby="level-picker-title"></div>
+    </div>
+    <button class="btn big" id="btn-start">▶ 시작하기</button>
     </div>
   </div>
 </section>
@@ -72,6 +42,7 @@
 <!-- ============ 장면 2+3: 코딩 / 실행 ============ -->
 <section id="scene-play" class="play hidden">
   <div class="panel">
+    <div class="map-toolbar hidden" id="play-meta"><span id="map-label">초1–3</span><span id="challenge-label"></span></div><div id="play-actions" class="hidden"></div>
     <div class="grid-wrap">
       <div class="grid" id="grid" aria-label="마트 지도"></div>
       <div class="failure-overlay hidden" id="failure-overlay" role="status" aria-live="polite" aria-atomic="true">
@@ -83,29 +54,28 @@
         </div>
       </div>
     </div>
-    <div class="sticker">
-      <div class="shopping-heading"><h2>📝 심부름 목록</h2><span id="shopping-progress" role="status" aria-live="polite">담은 재료 0 / 3</span></div>
+    <div class="sticker shopping-card shopping-panel">
+      <h2>심부름 목록</h2><p id="shopping-progress" aria-live="polite"></p>
       <div class="recipe" id="recipe"></div>
     </div>
   </div>
 
   <div class="sticker workspace">
-    <div class="workspace-heading">
-      <h2>🧩 블록 코딩</h2>
-      <div class="workspace-tools">
-        <span class="hint" id="block-count">블록 0개</span>
-        <button class="btn ghost zoom-button" id="btn-zoom-out" type="button" aria-label="블록 축소">−</button>
-        <button class="btn ghost zoom-button" id="btn-zoom-in" type="button" aria-label="블록 확대">＋</button>
-      </div>
-    </div>
+    <h2>🧩 블록 코딩 <span class="hint" id="block-count">블록 0개</span></h2>
     <div class="blockly-frame">
       <div id="blocklyDiv"></div>
+      <div class="editor-zoom" role="group" aria-label="블록 화면 크기">
+        <button type="button" id="btn-zoom-in" aria-label="확대" title="확대">+</button>
+        <button type="button" id="btn-zoom-out" aria-label="축소" title="축소">−</button>
+
+      </div>
       <div class="ws-lock" id="ws-lock"></div>
     </div>
     <div class="controls">
-      <button class="btn red" id="btn-run">▶ 실행</button>
-      <button class="btn ghost" id="btn-stop" disabled>■ 멈춤</button>
-      <button class="btn ghost" id="btn-clear">🧹 블록 지우기</button>
+
+      <button class="btn" id="btn-run"><span class="control-icon play-icon" aria-hidden="true"></span><span>실행</span></button>
+      <button class="btn ghost" id="btn-stop" disabled><span class="control-icon stop-icon" aria-hidden="true"></span><span>멈춤</span></button>
+      <button class="btn ghost" id="btn-clear"><svg class="control-icon broom-icon" aria-hidden="true" viewBox="0 0 20 24"><path fill="#8b4b26" d="M15 1h3v4h-2v4h-2v4h-2v3H8v-4h2V8h2V4h3Z"/><path fill="#b57a3a" d="M7 12h5v5h-2v4H7v2H1v-4h2v-3h2v-2h2Z"/></svg><span>블록 지우기</span></button>
     </div>
   </div>
 </section>
@@ -124,7 +94,7 @@
         <span class="metrics-label">점수</span>
         <div class="score"><span id="res-score">0</span><small><span id="res-max"></span></small></div>
       </div>
-      <div class="result-clock"><span class="metrics-label">풀이 시간</span><b id="res-time">00:00.0</b></div>
+      <div class="result-clock hidden"><span class="metrics-label">풀이 시간</span><b id="res-time">00:00.0</b></div>
     </div>
   </div>
 
@@ -138,7 +108,7 @@
         </section>
         <div class="review-details">
           <section class="shopping-card">
-            <h3>📝 심부름 목록</h3>
+            <h3>심부름 목록</h3>
             <div class="recipe" id="res-shopping-list"></div>
           </section>
           <div class="stats">
@@ -167,104 +137,23 @@
   </footer>
 </section>
 </main>
+
 <dialog class="guide-dialog" id="guide-dialog" aria-labelledby="guide-title">
-  <header class="guide-header">
-    <span class="guide-header-icon" aria-hidden="true">🛒</span>
-    <h2 id="guide-title">장보기 준비!</h2>
-    <span class="guide-progress" id="guide-progress" aria-live="polite">1 / 3</span>
-  </header>
-  <div class="guide-content" tabindex="0" aria-label="장보기 안내">
-    <section class="guide-step" data-guide-step="0" aria-labelledby="guide-blocks-title">
-      <h3 class="guide-step-title" id="guide-blocks-title"><span>01</span> 블록으로 움직여요</h3>
-      <div class="guide-block-layout">
-        <div class="guide-connect-demo">
-          <div class="guide-mini-map" role="img" aria-label="딸기가 나우의 바로 앞 한 칸에 있어요">
-            <span class="guide-mini-start">🧒<small>나우 ➜</small></span><span>🍓</span><span class="guide-mini-wall"></span>
-            <span class="guide-mini-wall"></span><span></span><span class="guide-mini-wall"></span>
-            <span></span><span></span><span></span>
-          </div>
-          <div class="guide-example-chain" aria-label="시작, 앞으로, 집기, 종료 순서로 블록을 이어요">
-            <span class="guide-block guide-block-start">🏁 시작하기</span>
-            <span class="guide-block guide-block-move">↑ 앞으로</span>
-            <span class="guide-block guide-block-pick">✋ 집기</span>
-            <span class="guide-block guide-block-end">🧾 종료하기</span>
-          </div>
-          <p class="guide-caption">한 칸 이동 → 집기!</p>
-        </div>
-        <div class="guide-block-catalog">
-          <div class="guide-block-pair"><span class="guide-block guide-block-start">🏁 시작하기</span><small>여기부터 출발</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-move">↑ 앞으로 가기</span><small>보고 있는 쪽 한 칸</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-move">↶ 왼쪽으로 돌기</span><small>제자리에서 왼쪽</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-move">↷ 오른쪽으로 돌기</span><small>제자리에서 오른쪽</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-pick">✋ 물건 집기</span><small>내가 선 칸의 물건</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-end">🧾 종료하기</span><small>장보기 결과 확인</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-repeat">🔁 3번 반복</span><small>안에 넣고 여러 번</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-if">❓ 만약</span><small>조건이 맞으면 실행</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-repeat">🔁 ~인 동안 반복</span><small>조건이 맞는 동안 계속</small></div>
-          <div class="guide-block-pair"><span class="guide-block guide-block-repeat">🔁 ~까지 반복</span><small>조건이 맞으면 멈춰요</small></div>
-        </div>
-      </div>
-      <div class="guide-rule-strip"><span>🔗 시작에 이어진 블록만!</span><span>🏁 시작 · 🧾 종료는 하나씩</span></div>
-    </section>
-    <section class="guide-step hidden" data-guide-step="1" aria-labelledby="guide-map-title">
-      <h3 class="guide-step-title" id="guide-map-title"><span>02</span> 벽 · 함정 살펴보기</h3>
-      <div class="guide-floor-legend">
-        <div><span class="guide-floor-sample guide-wall-sample" aria-hidden="true"></span><b>벽</b><small>지나갈 수 없어요</small><strong aria-hidden="true">✕</strong></div>
-        <div><span class="guide-floor-sample" aria-hidden="true">👣</span><b>길</b><small>자유롭게 지나가요</small><strong aria-hidden="true">✓</strong></div>
-      </div>
-      <section class="guide-hazard-panel" aria-labelledby="guide-traps-title">
-        <div class="guide-panel-heading"><h4 id="guide-traps-title">바닥 함정 8종</h4><span class="guide-penalty">밟으면 −10점</span></div>
-        <div class="guide-hazard-grid">
-          <div><span>💦</span><b>물웅덩이</b><small>미끌!</small></div>
-          <div><span>🧼</span><b>미끄러운 바닥</b><small>미끌!</small></div>
-          <div><span>🧊</span><b>얼음판</b><small>미끌!</small></div>
-          <div><span>🍌</span><b>바나나껍질</b><small>미끌!</small></div>
-          <div><span>🟤</span><b>진흙</b><small>철썩!</small></div>
-          <div><span>🕸️</span><b>거미줄</b><small>철썩!</small></div>
-          <div><span>🍯</span><b>꿀웅덩이</b><small>철썩!</small></div>
-          <div><span>🧱</span><b>장난감블록</b><small>쿵!</small></div>
-        </div>
-      </section>
-      <section class="guide-surprise-panel" aria-labelledby="guide-surprises-title">
-        <div class="guide-panel-heading"><h4 id="guide-surprises-title">이걸 집으면…?</h4><span class="guide-surprise-badge">깜짝 엔딩 · −20점</span></div>
-        <div class="guide-surprise-grid">
-          <span>🧦<small>양말</small></span><span>⚽<small>축구공</small></span><span>🤖<small>로봇</small></span><span>🎤<small>마이크</small></span><span>👑<small>왕관</small></span>
-          <span>🚀<small>로켓</small></span><span>🪄<small>마술봉</small></span><span>🥁<small>북</small></span><span>🧲<small>자석</small></span><span>🦆<small>오리인형</small></span>
-        </div>
-      </section>
-    </section>
-    <section class="guide-step hidden" data-guide-step="2" aria-labelledby="guide-mission-title">
-      <h3 class="guide-step-title" id="guide-mission-title"><span>03</span> 오늘의 미션</h3>
-      <div class="guide-target-card"><h4>이 재료들을 모두 담아요!</h4><div class="recipe" id="guide-targets"></div></div>
-      <div class="guide-goal-flow" aria-label="재료 위치로 이동하고, 집기 블록을 실행하고, 종료 블록으로 마쳐요">
-        <div><span class="guide-goal-emoji" aria-hidden="true">🧒🍓</span><b>재료 칸으로</b><small>가까이 말고, 같은 칸!</small></div>
-        <span class="guide-flow-arrow" aria-hidden="true">➜</span>
-        <div><span class="guide-goal-emoji" aria-hidden="true">✋🛍️</span><b>집기 블록</b><small>재료를 쏙!</small></div>
-        <span class="guide-flow-arrow" aria-hidden="true">➜</span>
-        <div><span class="guide-goal-emoji" aria-hidden="true">🧾🏆</span><b>종료하기 연결</b><small>기록 완성!</small></div>
-      </div>
-      <div class="guide-helper-grid">
-        <div><span class="guide-helper-picture" aria-hidden="true">🍓 <i>☝️</i> <em>✦</em></span><b>재료를 누르면 위치 반짝!</b></div>
-        <div><span class="guide-helper-picture guide-preview-picture" aria-hidden="true">▶ <i>👣</i> <em>↩</em></span><b>미리보기는 연습!</b><small>종료 없이 실행하면 제자리로</small></div>
-      </div>
-    </section>
+  <h2 class="dialog-sign" id="guide-title">장보기는 이렇게!</h2>
+  <div class="guide-content">
+    <p>블록을 이어 재료 칸으로 이동 → 집기 → 종료하기!</p>
+    <div class="recipe" id="guide-targets" aria-label="이번에 담을 재료"></div>
+    <p class="guide-tip">재료를 누르면 위치가 반짝여요. 함정과 엉뚱한 물건은 조심!</p>
   </div>
-  <footer class="guide-footer">
-    <p class="guide-error hidden" id="guide-error" role="alert"></p>
-    <p class="guide-clock" id="guide-clock">⏸ 안내를 보는 동안 시간은 멈춰요</p>
-    <nav class="guide-nav" aria-label="안내 단계 이동">
-      <button class="btn ghost" id="guide-cancel" type="button">홈으로</button>
-      <button class="btn ghost" id="guide-prev" type="button" disabled>이전</button>
-      <button class="btn" id="guide-next" type="button">다음 <span aria-hidden="true">➜</span></button>
-      <button class="btn hidden" id="guide-begin" type="button">이해했어요! 시작</button>
-    </nav>
-  </footer>
+  <p id="guide-clock" class="guide-tip"></p>
+  <p id="guide-error" class="name-error hidden" role="alert"></p>
+  <div class="guide-nav pixel-actions"><button class="btn ghost" id="guide-cancel">홈으로</button><button class="btn" id="guide-begin">시작하기</button></div>
 </dialog>
 <dialog class="install-dialog" id="install-dialog" aria-labelledby="install-title">
-  <img src="icons/icon-192.png" width="64" height="64" alt="">
-  <h2 id="install-title">홈 화면에 나우마트 담기</h2>
+  <div class="install-mascot" aria-hidden="true"><span class="pixel-nau"></span></div>
+  <h2 class="dialog-sign" id="install-title">홈 화면에 나우마트 담기</h2>
   <p id="install-instructions"></p>
-  <button class="btn" id="btn-install-close" type="button">알겠어요</button>
+  <div class="pixel-actions"><button class="btn" id="btn-install-close" type="button">알겠어요</button></div>
 </dialog>
 <dialog class="name-dialog" id="name-dialog" aria-labelledby="name-title" aria-describedby="name-summary">
   <form id="name-form" novalidate>
@@ -281,7 +170,7 @@
     </div>
   </form>
 </dialog>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="toast" id="toast"></div>
 
 <script src="vendor/blockly.min.js"></script>
 <script src="vendor/blockly_ko.js"></script>
