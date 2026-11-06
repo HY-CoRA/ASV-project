@@ -2,7 +2,7 @@
 
 const APP_SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = 'asv-game-shell:' + encodeURIComponent(APP_SCOPE.href) + ':';
-const CACHE_NAME = CACHE_PREFIX + 'v7-detailed-pixel-items';
+const CACHE_NAME = CACHE_PREFIX + 'v8-static-game';
 const SHELL_PATHS = [
   'index.html',
   'assets/extra-item-sprites.png',
@@ -21,6 +21,7 @@ const SHELL_PATHS = [
   'css/style.css',
   'js/engine.js',
   'js/app.js',
+  'js/local-game.js',
   'js/pwa.js',
   'vendor/blockly.min.js',
   'vendor/blockly_ko.js',
