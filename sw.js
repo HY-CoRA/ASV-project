@@ -2,7 +2,7 @@
 
 const APP_SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = 'asv-game-shell:' + encodeURIComponent(APP_SCOPE.href) + ':';
-const CACHE_NAME = CACHE_PREFIX + 'v8-static-game';
+const CACHE_NAME = CACHE_PREFIX + 'v9-pixel-results';
 const SHELL_PATHS = [
   'index.html',
   'assets/extra-item-sprites.png',
