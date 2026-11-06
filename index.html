@@ -23,7 +23,7 @@
   <div class="header-tools"><button class="wood-install hidden" id="btn-install" type="button"><span class="install-pixel-icon" aria-hidden="true"></span><span>앱 설치</span></button><div class="timer-wrap hidden" id="timer-wrap"><span aria-hidden="true">⏱️</span><span>풀이 시간</span><time id="solve-timer" role="timer" aria-label="풀이 시간">00:00.0</time></div><button class="wood-new-map" id="btn-new-map" aria-label="새 맵"><svg aria-hidden="true" viewBox="0 0 32 32"><path d="M16 2 29 9v15l-13 7L3 24V9Z" fill="#eee9da" stroke="#302a29" stroke-width="2"/><path d="m3 9 13 7 13-7M16 16v15" fill="none" stroke="#70665a"/><g fill="#3d3936"><circle cx="16" cy="8" r="2"/><circle cx="9" cy="17" r="1.7"/><circle cx="11" cy="23" r="1.7"/><circle cx="22" cy="17" r="1.7"/><circle cx="24" cy="23" r="1.7"/></g></svg><span>새 맵</span></button></div>
 </header>
 
-<div class="connection-note hidden" id="connection-note" role="status">연결이 끊겼어요. 새 지도와 기록 저장은 연결 후 이용해 주세요.</div>
+<div class="connection-note hidden" id="connection-note" role="status">인터넷 연결이 끊겼어요. 기본 게임은 계속 플레이할 수 있어요.</div>
 <main>
 <!-- ============ 장면 1: 인트로 ============ -->
 <section id="scene-intro" class="intro">
@@ -178,6 +178,7 @@
 <script src="vendor/blockly.min.js"></script>
 <script src="vendor/blockly_ko.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/local-game.js"></script>
 <script src="js/app.js"></script>
 <script src="js/pwa.js"></script>
 </body>
