@@ -746,3 +746,56 @@ body:has(#scene-play:not(.hidden)){background:#D5D4DC}
 .cell small{font-family:'Galmuri11',var(--body);white-space:normal;text-align:center;overflow:visible;text-overflow:clip;line-height:1.15;word-break:keep-all;max-width:100%;background:#fff4d8;color:#3d302c;border-radius:0;padding:2px}
 #play-meta{display:flex;justify-content:space-between;gap:8px;font:12px/1.5 'Galmuri11',var(--body);color:#604b39}
 .pixel-item,.pixel-board,.pixel-extra{image-rendering:pixelated}
+
+/* 결과 화면도 마트의 목재 프레임과 픽셀 활자를 사용한다. */
+.result{font-family:'Galmuri11',var(--body);color:#463526;gap:18px}
+.result .sticker{
+  border:6px solid #a77850;border-top-color:#d4aa76;border-left-color:#d4aa76;
+  border-bottom-color:#72503b;border-right-color:#72503b;border-radius:0;
+  outline:2px solid #342b28;background:#f3e7c9;box-shadow:inset 0 0 0 2px #ddc69b;
+}
+.result h2,.result h3,.result .score,.result .stat b,.result .stat span,.result .metrics-label,
+.result .route-summary,.result .hof-context,.result .hof-status,.result .slot,.result .pts,
+.result .breakdown th,.result .hof li,.result .hof .person b,.result .hof .time,
+.result .hof .rk,.result .hof .sc{font-family:'Galmuri11',var(--body)}
+.result-hero{grid-template-columns:70px minmax(0,1fr) auto;padding:20px;gap:18px}
+.result .verdict-copy h2{font-size:clamp(20px,3vw,28px);line-height:1.5;color:#523d2b}
+.result .verdict .big{display:grid;place-items:center;width:64px;height:72px;font-size:48px}
+.result .verdict .big .pixel-nau{width:58px;height:68px}
+.result .verdict .big .pixel-item,.result .verdict .big .pixel-extra{width:64px;height:64px}
+.result-totals{background:#73563d;color:#ffe39a;border:2px solid #47362f;padding:12px 18px;box-shadow:inset 0 0 0 2px #b49466;grid-template-columns:auto}
+.result .score{font-size:40px;text-shadow:2px 2px #362921}
+.result .score small{font-size:12px;margin-top:8px}
+.result .ending-caption{border-radius:0;border:2px solid #9b805b;background:#fff3d7;font-family:'Galmuri11',var(--body)}
+.result .review-heading,.result .hof-heading{background:#73563d;color:#ffe39a;border-bottom:3px solid #47362f;margin:-10px -10px 4px;padding:12px 14px;box-shadow:inset 0 2px #b49466}
+.result .review-heading h2,.result .hof-heading h2{font-size:18px;line-height:1.5;text-shadow:2px 2px #362921}
+.result .result-review,.result .hof{padding:14px}
+.result .route-card{border:2px solid #9b805b;border-radius:0;background:#e5d3ac;padding:12px}
+.result .route-summary{font-size:11px;line-height:1.8;color:#6c543c}
+.result .shopping-card{padding:12px;background:#fff3d7;border:2px solid #b69a70}
+.result .shopping-card h3{font-size:15px}
+.result .slot{border-radius:0;border:2px solid #b69a70;background:#f6e5c1;font-size:12px}
+.result .slot.done{background:#d2dfa7;border-color:#6e8951}
+.result .slot .n{font-size:10px;line-height:1.5}
+.result .stat{border-radius:0;border:2px solid #b69a70;background:#fff3d7;padding:9px 3px;box-shadow:inset 0 -3px #e4cfa6}
+.result .stat b{font-size:22px;color:#61482c}
+.result .stat span{font-size:10px;line-height:1.5;color:#766147}
+.result .table-wrap{border:2px solid #b69a70;background:#fff8e5}
+.result .breakdown{font-size:12px;line-height:1.6}
+.result .breakdown th{background:#dfc798;color:#60482e;border-bottom:2px solid #a78555}
+.result .breakdown td{border-bottom:1px solid #ddc69b;padding:10px 8px}
+.result .hof li{border-radius:0;border:2px solid #b69a70;background:#fff3d7}
+.result .hof-context,.result .hof-status{font-size:12px;line-height:1.8;color:#766147}
+.result .pixel-actions .btn{min-height:48px;white-space:normal;font-size:14px}
+.result .route-marker .pixel-nau{width:1.4em;height:1.6em}
+.result .route-visited::before{border-radius:0;background:#5d9850;inset:40%;opacity:.85}
+@media(max-width:600px){
+  .result-hero{grid-template-columns:54px minmax(0,1fr);padding:14px;gap:12px}
+  .result .verdict .big{width:48px;height:56px}
+  .result .verdict .big .pixel-nau{width:42px;height:52px}
+  .result-totals{grid-column:1/-1;padding:12px}
+  .result .review-layout{grid-template-columns:1fr}
+  .result .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .result-footer .btn:first-child{min-width:0}
+  .result-footer .btn{flex:1 1 180px}
+}
