@@ -648,7 +648,7 @@ function showResult(R){
   if(!R || !isCurrent(R)) return;
   var ending=FAILURES[R.res.failure], v=ending || VERDICTS[R.res.verdict];
   var terminal=R.checkedOut || !!ending;
-  $('res-emoji').textContent=v.emoji; $('res-title').textContent=v.title;
+  $('res-emoji').innerHTML=ending?itemIcon(R.res.failure):boardIcon('나우'); $('res-title').textContent=v.title;
   var story=ending?ending.message:R.res.verdict==='trapped'?'재료는 모두 담았어요. 함정 −'+R.res.trapPenalty+'점':'';
   $('res-story').textContent=story;
   $('res-story').classList.toggle('hidden', !story);
