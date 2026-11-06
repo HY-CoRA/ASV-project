@@ -2,9 +2,22 @@
 
 const APP_SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = 'asv-game-shell:' + encodeURIComponent(APP_SCOPE.href) + ':';
-const CACHE_NAME = CACHE_PREFIX + 'v3';
+const CACHE_NAME = CACHE_PREFIX + 'v7-detailed-pixel-items';
 const SHELL_PATHS = [
   'index.html',
+  'assets/extra-item-sprites.png',
+
+  'assets/board-sprites.webp',
+  'assets/brick-wall.svg',
+  'assets/flower-frame.svg',
+  'assets/fonts/Galmuri11.woff2',
+  'assets/fonts/LICENSE.txt',
+  'assets/item-sprites.webp',
+  'assets/market-depth-sprites.webp',
+  'assets/shop-awning.svg',
+  'assets/shopping-pixel-title.webp',
+  'assets/terrain-tiles.webp',
+
   'css/style.css',
   'js/engine.js',
   'js/app.js',

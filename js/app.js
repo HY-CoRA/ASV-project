@@ -3,6 +3,27 @@
 var E = NauEngine, ITEMS = E.ITEMS, HAZARDS = E.HAZARDS, FAILURES = E.FAILURES;
 var $ = function(id){ return document.getElementById(id); };
 
+var extraSprites = ["오렌지", "포도", "수박", "복숭아", "배", "파인애플", "레몬", "체리", "오이", "옥수수", "감자", "마이크", "왕관", "로켓", "마술봉", "북", "자석", "오리인형", "얼음판", "바나나껍질", "진흙", "거미줄", "꿀웅덩이", "장난감블록"];
+function extraIcon(key){
+  var index=extraSprites.indexOf(key);
+  if(index<0) return '';
+  return '<span class="pixel-extra" aria-hidden="true" style="background-position:'+
+    (index%6*100/5)+'% '+(Math.floor(index/6)*100/3)+'%"></span>';
+}
+var itemSprites = ['딸기','브로콜리','바나나','사과','당근','양말','축구공','로봇'];
+function itemIcon(key){
+  var index=itemSprites.indexOf(key);
+  if(index<0) return extraIcon(key);
+  return '<span class="pixel-item" aria-hidden="true" style="background-position:'+
+    (index%4*100/3)+'% '+(index<4?0:100)+'%"></span>';
+}
+function boardIcon(key){
+  if(key==='나우') return '<span class="pixel-nau" aria-hidden="true"></span>';
+  var index=['나우','물웅덩이','미끄럼','입구'].indexOf(key);
+  if(index<0) return extraIcon(key);
+  return '<span class="pixel-board" aria-hidden="true" style="background-position:'+(index*100/3)+'% 0"></span>';
+}
+
 /* ---------- 효과음 (WebAudio, 파일 없음) ---------- */
 var audio = { ctx:null };
 function ensureAudio(){ if(!audio.ctx){ try{ audio.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audio.ctx=null; } } if(audio.ctx && audio.ctx.state==='suspended'){ audio.ctx.resume(); } }
@@ -56,10 +77,6 @@ function renderLevelPicker(){
     card.addEventListener('click', function(){ selectLevel(lv); });
     box.appendChild(card);
   });
-  var mission = $('mission-items'); mission.replaceChildren();
-  var item=document.createElement('span');
-  item.textContent='🎲 랜덤 재료 '+(level.targetCount || level.shoppingList.length)+'개';
-  mission.appendChild(item);
   $('level-label').textContent = level.name;
   $('btn-start').textContent = '▶ '+level.name+' 시작하기';
 }
@@ -79,7 +96,8 @@ function showScene(n){
   document.querySelector('.top').classList.toggle('is-playing', n===2);
   $('play-meta').classList.toggle('hidden', n!==2);
   $('play-actions').classList.toggle('hidden', n!==2);
-  $('timer-wrap').classList.toggle('hidden', n===1 || !attempt);
+  $('timer-wrap').classList.add('hidden');
+  $('btn-new-map').classList.toggle('hidden', n!==2);
   window.scrollTo({top:0});
 }
 var toastTimer;
@@ -124,16 +142,17 @@ function buildGrid(){
   gridEl.setAttribute('aria-label','마트 지도 '+eng.rows+'x'+eng.cols);
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var v = eng.map[r][c], d=document.createElement('div'); d.className='cell';
-    if(v==='#'){ d.classList.add('wall'); }
-    else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">🚪</span><small>입구</small>'; }
-    else if(HAZARDS[v]){ d.classList.add('hazard'); d.innerHTML='<span class="b">'+HAZARDS[v].emoji+'</span><small>'+HAZARDS[v].label+'</small>'; }
-    else if(ITEMS[v]){ d.classList.add('item'); d.innerHTML='<span class="b">'+ITEMS[v].emoji+'</span><small>'+v+'</small>'; }
+    d.style.setProperty('--tile-x',((r*5+c*3)%4*100/3)+'%');
+    if(v==='#'){ d.classList.add('wall'); d.setAttribute('aria-label','지나갈 수 없는 벽'); }
+    else if(v==='S'){ d.classList.add('start'); d.innerHTML='<span class="b">'+boardIcon('입구')+'</span><small>입구</small>'; }
+    else if(HAZARDS[v]){ d.classList.add('hazard'); d.innerHTML='<span class="b">'+boardIcon(v)+'</span><small>'+HAZARDS[v].label+'</small>'; }
+    else if(ITEMS[v]){ d.classList.add('item'); d.innerHTML='<span class="b">'+itemIcon(v)+'</span><small>'+v+'</small>'; }
     d.title = v==='#'?'벽': v==='S'?'입구': ITEMS[v]? ITEMS[v].label : HAZARDS[v]? HAZARDS[v].label : '통로';
     gridEl.appendChild(d);
   }
   nauEl=document.createElement('div'); nauEl.className='nau';
   nauEl.style.width=(100/eng.cols)+'%'; nauEl.style.height=(100/eng.rows)+'%';
-  nauEl.innerHTML='<span class="body">🧒</span><span class="pick-hand" aria-hidden="true">✋</span><span class="bag" aria-hidden="true">🛍️</span><span class="dir">▲</span>'; gridEl.appendChild(nauEl);
+  nauEl.innerHTML='<span class="body">'+boardIcon('나우')+'</span><span class="dir">▲</span>'; gridEl.appendChild(nauEl);
 }
 function placeNau(instant){
   if(instant) nauEl.style.transition='none';
@@ -145,7 +164,7 @@ function placeNau(instant){
 /* ---------- 서버 시도와 풀이 시간 ---------- */
 var attempt=null, sessionRevision=0, mapRequest=0, mapPending=false;
 var timerBase=0, timerStarted=0, timerActive=false;
-var guideRequired=false, guideConfirmPending=false, guideStep=0, guideSequence=0;
+var guideRequired=false, guideConfirmPending=false, guideSequence=0;
 var activeDialogResult=null, hofRequest=0;
 var apiControllers=new Set();
 function elapsedNow(){ return timerBase+(timerActive ? Math.max(0,performance.now()-timerStarted) : 0); }
@@ -225,20 +244,11 @@ async function newMap(options){
 
 /* ---------- 시작 전 그림 안내 (확인 전에는 서버와 화면 모두 시간 정지) ---------- */
 function renderGuideStep(){
-  document.querySelectorAll('#guide-dialog [data-guide-step]').forEach(function(step){
-    step.classList.toggle('hidden',Number(step.dataset.guideStep)!==guideStep);
-  });
-  $('guide-progress').textContent=(guideStep+1)+' / 3';
-  $('guide-dialog').querySelector('.guide-content').scrollTop=0;
-  $('guide-prev').classList.toggle('hidden',guideStep===0);
-  $('guide-next').classList.toggle('hidden',guideStep===2);
-  $('guide-begin').classList.toggle('hidden',guideStep!==2);
-  ['guide-prev','guide-next','guide-begin'].forEach(function(id){ $(id).disabled=guideConfirmPending; });
-  $('guide-begin').textContent=guideConfirmPending?'준비 중…':'확인했어요! 시작';
+  $('guide-begin').disabled=guideConfirmPending;
+  $('guide-begin').textContent=guideConfirmPending?'준비 중…':'시작하기';
   $('guide-dialog').setAttribute('aria-busy',guideConfirmPending?'true':'false');
 }
 function openGuide(){
-  guideStep=0;
   $('guide-clock').textContent='⏸ 안내를 보는 동안 시간은 멈춰요';
   $('guide-error').classList.add('hidden'); $('guide-error').textContent='';
   renderShoppingList($('guide-targets'));
@@ -250,7 +260,7 @@ function closeGuide(){
   if($('guide-dialog').open) $('guide-dialog').close();
 }
 async function beginGuidedAttempt(){
-  if(!guideRequired || guideConfirmPending || guideStep!==2 || !attempt) return;
+  if(!guideRequired || guideConfirmPending || !attempt) return;
   var id=attempt.id, revision=sessionRevision, request=++guideSequence;
   function current(){ return guideRequired && !!attempt && attempt.id===id && sessionRevision===revision && guideSequence===request; }
   guideConfirmPending=true;
@@ -280,7 +290,7 @@ async function animatePick(ev,run){
   await sleep(200);
   if(!runIsCurrent(run)) return;
   var from=cell.getBoundingClientRect(), to=target.getBoundingClientRect();
-  var flight=document.createElement('span'); flight.className='item-flight'; flight.textContent=item.emoji; flight.setAttribute('aria-hidden','true');
+  var flight=document.createElement('span'); flight.className='item-flight'; flight.innerHTML=itemIcon(ev.item); flight.setAttribute('aria-hidden','true');
   flight.style.left=(from.left+from.width/2)+'px'; flight.style.top=(from.top+from.height/2)+'px';
   flight.style.fontSize=Math.max(24,from.width*0.55)+'px';
   document.body.appendChild(flight); cell.classList.add('picked');
@@ -312,7 +322,7 @@ async function animateFailure(item,run){
   var actor=nauEl, ending=FAILURES[item], overlay=$('failure-overlay');
   var props=ending.props || [ending.emoji,'✨','✨'];
   overlay.dataset.ending=ending.id;
-  $('event-emoji').textContent=ending.emoji;
+  $('event-emoji').innerHTML=itemIcon(item);
   $('event-title').textContent=ending.title;
   $('event-caption').textContent=ending.caption;
   overlay.querySelectorAll('.event-props span').forEach(function(el,i){ el.textContent=props[i]; });
@@ -342,8 +352,8 @@ function renderShoppingList(container){
     }
     slot.dataset.item = key;
     slot.className = 'slot' + (done ? ' done' : '');
-    slot.innerHTML = '<span class="n">'+(done ? '<span class="slot-mark" aria-hidden="true">✓</span> 담았어요' : '아직')+
-      '</span><span class="e" aria-hidden="true">'+item.emoji+'</span>'+item.label;
+    slot.innerHTML = '<span class="e" aria-hidden="true">'+itemIcon(key)+'</span>'+item.label+
+      '<span class="n">'+(done ? '<span class="slot-mark" aria-hidden="true">✓</span> 담았어요' : '아직')+'</span>';
     container.appendChild(slot);
   });
   if(interactive){
@@ -395,14 +405,14 @@ function initBlockly(){
       loop_blocks:   { colourPrimary:'#F29E1F', colourSecondary:'#F8CF8D', colourTertiary:'#C27C12' },
       logic_blocks:  { colourPrimary:'#7B61FF', colourSecondary:'#BDB0FF', colourTertiary:'#5A44C9' }
     },
-    componentStyles: { workspaceBackgroundColour:'#FFFDF5', flyoutBackgroundColour:'#F3E9D2', flyoutOpacity:1, scrollbarColour:'#C9B99A', insertionMarkerColour:'#1F1A14', insertionMarkerOpacity:0.3 },
+    componentStyles: { workspaceBackgroundColour:'#FFFFFF', flyoutBackgroundColour:'#F9F9F9', flyoutOpacity:1, scrollbarColour:'#C9B99A', insertionMarkerColour:'#1F1A14', insertionMarkerOpacity:0.3 },
     fontStyle: { family:"'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif", weight:'normal', size:13 }
   });
   ws = Blockly.inject('blocklyDiv', {
     toolbox: shoppingToolbox(), renderer:'zelos', theme: theme, trashcan:false, sounds:false,
     maxInstances:{ nau_start:1, nau_checkout:1 },
     scrollbars:true, move:{ scrollbars:true, drag:true, wheel:true }, zoom:{ controls:false, wheel:false, pinch:true, startScale:0.9, minScale:0.65, maxScale:1.4 },
-    grid:{ spacing:24, length:2, colour:'#E4D8BC', snap:false }
+    grid:{ spacing:0, length:0, snap:false }
   });
   toolboxLevel=level.id;
   loadStarter();
@@ -607,17 +617,18 @@ function renderResultRoute(){
   for(var r=0;r<eng.rows;r++) for(var c=0;c<eng.cols;c++){
     var key=r+','+c, value=eng.map[r][c], cell=document.createElement('div');
     cell.className='cell';
-    if(value==='#') cell.classList.add('wall');
-    else if(value==='S'){ cell.classList.add('start'); cell.innerHTML='<span class="b">🚪</span>'; }
-    else if(HAZARDS[value]){ cell.classList.add('hazard'); cell.innerHTML='<span class="b">'+HAZARDS[value].emoji+'</span>'; }
-    else if(ITEMS[value]){ cell.classList.add('item'); cell.innerHTML='<span class="b">'+ITEMS[value].emoji+'</span>'; }
+    cell.style.setProperty('--tile-x',((r*5+c*3)%4*100/3)+'%');
+    if(value==='#'){ cell.classList.add('wall'); cell.setAttribute('aria-label','지나갈 수 없는 벽'); }
+    else if(value==='S'){ cell.classList.add('start'); cell.innerHTML='<span class="b">'+boardIcon('입구')+'</span>'; }
+    else if(HAZARDS[value]){ cell.classList.add('hazard'); cell.innerHTML='<span class="b">'+boardIcon(value)+'</span>'; }
+    else if(ITEMS[value]){ cell.classList.add('item'); cell.innerHTML='<span class="b">'+itemIcon(value)+'</span>'; }
     if(visited.has(key)){ cell.classList.add('route-visited'); cell.dataset.routeStep=visited.get(key); }
     if(r===eng.sr && c===eng.sc) cell.classList.add('route-start');
     if(eng.pickedCells.has(key)) cell.classList.add('picked');
     if(eng.triggeredTraps.has(key)) cell.classList.add('triggered');
     if(r===eng.r && c===eng.c){
       cell.classList.add('route-end');
-      var marker=document.createElement('span'); marker.className='route-marker'; marker.textContent='🧒'; cell.appendChild(marker);
+      var marker=document.createElement('span'); marker.className='route-marker'; marker.innerHTML=boardIcon('나우'); cell.appendChild(marker);
     }
     cell.title=(ITEMS[value]?ITEMS[value].label:HAZARDS[value]?HAZARDS[value].label:value==='#'?'벽':value==='S'?'입구':'통로')+
       (visited.has(key)?' · 지나간 칸':'')+(eng.pickedCells.has(key)?' · 담았어요':'');
@@ -649,7 +660,7 @@ function showResult(R){
   if(!R.res.rows.length){ tb.innerHTML='<tr><td colspan="3">아무것도 담지 않았어요.</td></tr>'; }
   R.res.rows.forEach(function(row){
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+row.emoji+' '+row.label+'</td><td>'+row.verdict+'</td><td class="pts '+(row.pts>0?'plus':'minus')+'">'+(row.pts>0?'+':'')+row.pts+'</td>';
+    tr.innerHTML='<td>'+itemIcon(row.item)+' '+row.label+'</td><td>'+row.verdict+'</td><td class="pts '+(row.pts>0?'plus':'minus')+'">'+(row.pts>0?'+':'')+row.pts+'</td>';
     tb.appendChild(tr);
   });
   renderShoppingList($('res-shopping-list')); renderResultRoute();
@@ -704,7 +715,7 @@ function rememberedName(){ try{ return sessionStorage.getItem('nau-player-name')
 function updateNameDialog(R){
   if(activeDialogResult!==R) return;
   var pending=!R.serverReady && !!R.finishPromise;
-  $('name-summary').textContent=R.serverReady ? R.res.total+'점 · 풀이 시간 '+formatTime(R.elapsedMs) : '풀이 시간 '+formatTime(R.elapsedMs);
+  $('name-summary').textContent=R.serverReady ? R.res.total+'점' : '기록 확인 중';
   $('name-submit').textContent=R.submitting?'저장 중…':R.eligible?'등록하고 결과 보기':'결과 보기';
   $('name-submit').disabled=R.submitting || pending;
   $('player-name').disabled=R.submitting;
@@ -801,8 +812,6 @@ $('btn-zoom-in').addEventListener('click',function(){ if(ws && !running && !mapP
 $('btn-run').addEventListener('click',function(){ runProgram(); });
 $('btn-stop').addEventListener('click',function(){ if(running && !lastResult) stopRequested=true; });
 $('btn-clear').addEventListener('click',function(){ if(ws && !running && !mapPending && !guideRequired && !guideConfirmPending && confirm('블록을 모두 지울까요?')){ ws.clear(); updateCount(); } });
-$('guide-next').addEventListener('click',function(){ if(guideRequired && !guideConfirmPending && guideStep<2){ guideStep++; renderGuideStep(); } });
-$('guide-prev').addEventListener('click',function(){ if(guideRequired && !guideConfirmPending && guideStep>0){ guideStep--; renderGuideStep(); } });
 $('guide-begin').addEventListener('click',beginGuidedAttempt);
 $('guide-cancel').addEventListener('click',goHome);
 $('guide-dialog').addEventListener('cancel',function(event){ event.preventDefault(); goHome(); });
