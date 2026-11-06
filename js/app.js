@@ -2,6 +2,10 @@
 'use strict';
 var E = NauEngine, ITEMS = E.ITEMS, HAZARDS = E.HAZARDS, FAILURES = E.FAILURES;
 var $ = function(id){ return document.getElementById(id); };
+var localGame=NauLocalGame.create(E);
+var apiConfig=document.querySelector('meta[name="nau-api-base"]');
+var apiBase=apiConfig && apiConfig.content.trim();
+var standaloneGame=!apiBase;
 
 var extraSprites = ["오렌지", "포도", "수박", "복숭아", "배", "파인애플", "레몬", "체리", "오이", "옥수수", "감자", "마이크", "왕관", "로켓", "마술봉", "북", "자석", "오리인형", "얼음판", "바나나껍질", "진흙", "거미줄", "꿀웅덩이", "장난감블록"];
 function extraIcon(key){
@@ -180,11 +184,12 @@ function startTimer(data){
 function freezeTimer(value){ timerBase=value===undefined ? elapsedNow() : Math.max(0,Number(value)||0); timerActive=false; paintTimer(); return timerBase; }
 setInterval(paintTimer,100);
 async function api(path, body){
+  if(standaloneGame) return localGame.request(path,body);
   var response, controller=new AbortController();
   apiControllers.add(controller);
   var timeout=setTimeout(function(){ controller.abort(); },12000);
   try{
-    response=await fetch(new URL('api/'+path,location.href),{
+    response=await fetch(new URL(path, new URL(apiBase.endsWith('/')?apiBase:apiBase+'/', location.href)),{
       method:body===undefined?'GET':'POST', credentials:'same-origin',
       headers:body===undefined?{}:{'Content-Type':'application/json'},
       body:body===undefined?undefined:JSON.stringify(body), signal:controller.signal
@@ -555,7 +560,8 @@ async function runProgram(){
     return;
   }
   setRunningUI(false); activeRun=null;
-  openNameDialog(completed);
+  if(standaloneGame){ await ensureFinished(completed); if(isCurrent(completed)) showResult(completed); }
+  else openNameDialog(completed);
 }
 function goHome(){
   clearItemHighlight();
@@ -792,6 +798,12 @@ function renderHofEntries(entries,R){
   $('hof-status').textContent=R.registered?(R.savedRank?'내 기록 '+R.savedRank+'위':'이름을 남겼어요.'):'';
 }
 async function renderHof(R){
+  if(standaloneGame){
+    $('hof-list').replaceChildren();
+    $('hof-status').textContent='공유 순위는 별도 서버 연결 후 이용할 수 있어요.';
+    $('btn-name-entry').classList.add('hidden');
+    return;
+  }
   var request=++hofRequest; $('hof-status').textContent='명예의 전당을 불러오고 있어요…';
   try{
     var data=await api('leaderboard?level='+encodeURIComponent(R.levelId)+'&challengeId='+encodeURIComponent(R.challenge.id));
