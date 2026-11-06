@@ -78,6 +78,7 @@ function showScene(n){
   $('scene-play').classList.toggle('hidden', n!==2);
   $('scene-result').classList.toggle('hidden', n!==3);
   $('timer-wrap').classList.toggle('hidden', n===1 || !attempt);
+  $('btn-new-map').classList.toggle('hidden', n!==2);
   window.scrollTo({top:0});
 }
 var toastTimer;
