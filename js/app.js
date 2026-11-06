@@ -77,7 +77,7 @@ function showScene(n){
   $('scene-intro').classList.toggle('hidden', n!==1);
   $('scene-play').classList.toggle('hidden', n!==2);
   $('scene-result').classList.toggle('hidden', n!==3);
-  $('timer-wrap').classList.toggle('hidden', n===1 || !attempt);
+  $('timer-wrap').classList.add('hidden'); // 시간 기록은 유지하고 순위에서만 표시한다.
   $('btn-new-map').classList.toggle('hidden', n!==2);
   window.scrollTo({top:0});
 }
@@ -262,7 +262,7 @@ function initBlockly(){
     { type:'nau_left', message0:'왼쪽으로 돌기', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
     { type:'nau_right', message0:'오른쪽으로 돌기', previousStatement:null, nextStatement:null, style:'move_blocks', tooltip:'' },
     { type:'nau_pick', message0:'서 있는 물건 집기', previousStatement:null, nextStatement:null, style:'action_blocks', tooltip:'' },
-    { type:'nau_checkout', message0:'종료하기', previousStatement:null, style:'finish_blocks', tooltip:'' },
+    { type:'nau_checkout', message0:'계산하기', previousStatement:null, style:'finish_blocks', tooltip:'' },
     { type:'nau_repeat', message0:'%1 번 반복하기', args0:[{ type:'field_number', name:'TIMES', value:3, min:1, max:20, precision:1 }],
       message1:'%1', args1:[{ type:'input_statement', name:'DO' }], previousStatement:null, nextStatement:null, style:'loop_blocks', tooltip:'' },
     { type:'nau_if', message0:'만약 %1', args0:[{ type:'field_dropdown', name:'COND', options:[
@@ -522,7 +522,7 @@ function rememberedName(){ try{ return sessionStorage.getItem('nau-player-name')
 function updateNameDialog(R){
   if(activeDialogResult!==R) return;
   var pending=!R.serverReady && !!R.finishPromise;
-  $('name-summary').textContent=R.serverReady ? R.res.total+'점 · 풀이 시간 '+formatTime(R.elapsedMs) : '풀이 시간 '+formatTime(R.elapsedMs);
+  $('name-summary').textContent=R.serverReady ? R.res.total+'점' : '장보기 기록 확인 중';
   $('name-submit').textContent=R.submitting?'저장 중…':R.eligible?'등록하고 결과 보기':'결과 보기';
   $('name-submit').disabled=R.submitting || pending;
   $('player-name').disabled=R.submitting;

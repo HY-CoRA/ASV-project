@@ -67,9 +67,9 @@
     </div>
     <div class="controls">
       <button type="button" class="btn ghost" id="btn-preview">미리보기</button>
-      <button class="btn" id="btn-run">▶ 실행</button>
-      <button class="btn ghost" id="btn-stop" disabled>■ 멈춤</button>
-      <button class="btn ghost" id="btn-clear">🧹 블록 지우기</button>
+      <button class="btn" id="btn-run"><span class="control-icon play-icon" aria-hidden="true"></span><span>실행</span></button>
+      <button class="btn ghost" id="btn-stop" disabled><span class="control-icon stop-icon" aria-hidden="true"></span><span>멈춤</span></button>
+      <button class="btn ghost" id="btn-clear"><svg class="control-icon broom-icon" aria-hidden="true" viewBox="0 0 20 24"><path fill="#8b4b26" d="M15 1h3v4h-2v4h-2v4h-2v3H8v-4h2V8h2V4h3Z"/><path fill="#b57a3a" d="M7 12h5v5h-2v4H7v2H1v-4h2v-3h2v-2h2Z"/></svg><span>블록 지우기</span></button>
     </div>
   </div>
 </section>
@@ -88,7 +88,7 @@
         <span class="metrics-label">점수</span>
         <div class="score"><span id="res-score">0</span><small><span id="res-max"></span></small></div>
       </div>
-      <div class="result-clock"><span class="metrics-label">풀이 시간</span><b id="res-time">00:00.0</b></div>
+      <div class="result-clock hidden"><span class="metrics-label">풀이 시간</span><b id="res-time">00:00.0</b></div>
     </div>
   </div>
 

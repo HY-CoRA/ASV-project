@@ -626,3 +626,35 @@ body:has(#scene-play:not(.hidden)){background:#D5D4DC}
   .play .panel .shopping-panel .slot .n{font-size:clamp(11px,2vh,16px)}
 }
 .controls .btn{font-size:14px;min-height:40px;padding:6px 10px}
+
+/* Pixel action buttons: raised, pressed, and disabled share one silhouette. */
+.controls{display:flex;flex-wrap:wrap;gap:8px;padding:3px 2px 5px;}
+.controls .btn{
+  --face:#51abd1;--light:#a1eaff;--shade:#2d6a99;
+  --pixel-shape:polygon(8px 0,calc(100% - 8px) 0,calc(100% - 8px) 3px,calc(100% - 4px) 3px,calc(100% - 4px) 7px,100% 7px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) calc(100% - 4px),calc(100% - 8px) calc(100% - 4px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 8px),0 calc(100% - 8px),0 7px,4px 7px,4px 3px,8px 3px);
+  position:relative;isolation:isolate;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  flex:1 1 auto;min-height:40px;min-width:0;padding:5px 9px 8px;
+  border:0;border-radius:0;box-shadow:none;background:#151619;color:#101010;
+  clip-path:var(--pixel-shape);font:700 16px/1.2 'Galmuri11',var(--body);
+  white-space:nowrap;text-shadow:none;transition:none;opacity:1;
+}
+.controls .btn::before{
+  content:'';position:absolute;inset:3px;z-index:-1;clip-path:var(--pixel-shape);
+  background:var(--face);box-shadow:inset 0 4px var(--light),inset 3px 0 var(--light),inset -3px 0 var(--light),inset 0 -5px var(--shade),inset 0 -8px var(--light);
+}
+.controls #btn-run{--face:#3e79d8;--light:#8dbfff;--shade:#2c4f90}
+.controls #btn-stop{--face:#db551e;--light:#ffb76c;--shade:#8b3d25}
+.controls #btn-clear{--face:#efbf3c;--light:#fff08c;--shade:#b17b2e}
+.controls .btn:hover:not(:disabled){filter:brightness(1.05)}
+.controls .btn:active:not(:disabled){transform:translateY(3px);padding-top:7px;padding-bottom:6px;filter:brightness(.94)}
+.controls .btn:active:not(:disabled)::before{box-shadow:inset 0 3px var(--shade),inset 3px 0 var(--light),inset -3px 0 var(--light),inset 0 -3px var(--light)}
+.controls .btn:disabled{opacity:1;filter:saturate(.4);color:#353b43;cursor:not-allowed}
+.controls .btn:disabled::before{background:color-mix(in srgb,var(--face) 62%,#a6a6a6)}
+.controls .btn:focus-visible{outline:none;background:#fff1a2}
+.controls .btn:focus-visible::after{content:'';position:absolute;inset:6px;border:2px dashed #172332;pointer-events:none}
+.control-icon{display:inline-block;flex:none;width:16px;height:18px}
+.play-icon{background:currentColor;clip-path:polygon(0 0,25% 0,25% 12%,50% 12%,50% 25%,75% 25%,75% 38%,100% 38%,100% 62%,75% 62%,75% 75%,50% 75%,50% 88%,25% 88%,25% 100%,0 100%)}
+.stop-icon{height:16px;background:#8e3e28}
+.broom-icon{width:18px;height:22px;shape-rendering:crispEdges}
+@media(min-width:720px) and (max-width:950px){.controls{gap:5px}.controls .btn{font-size:13px;padding-left:7px;padding-right:7px;gap:4px}.control-icon{width:13px}}
+@media(prefers-reduced-motion:reduce){.controls .btn:active:not(:disabled){transform:none}}
