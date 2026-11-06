@@ -20,7 +20,7 @@ test('every ingredient, surprise item and floor hazard has a pixel sprite', () =
   const vm = require('node:vm');
   const engine = require('../js/engine.js');
   const source = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
-  const context = vm.createContext({NauEngine:engine, document:{getElementById(){}}});
+  const context = vm.createContext({NauEngine:engine,NauLocalGame:require('../js/local-game.js'),document:{getElementById(){},querySelector(){return null;}}});
   vm.runInContext(source.slice(source.indexOf('var E ='), source.indexOf('/* ---------- 효과음')), context);
   for (const key of Object.keys(engine.ITEMS)) {
     assert.match(context.itemIcon(key), /class="pixel-/, key + ' must not fall back to an emoji');
