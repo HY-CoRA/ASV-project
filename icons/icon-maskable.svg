@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title desc">
+<title id="title">나우마트</title><desc id="desc">마스크 안전 영역 안의 웃는 장바구니</desc>
+<rect width="512" height="512" fill="#FFF1B8"/>
+<g transform="translate(256 256) scale(.82) translate(-256 -256)">
+<g stroke="#283D32" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M277 211V159" stroke="#478651" stroke-width="25"/>
+  <path d="M246 153c-28 3-39-29-18-45 2-26 37-34 52-15 26-15 52 5 48 27 20 22 2 52-24 46-16 15-44 9-49-8Z" fill="#69AB63"/>
+  <path d="M167 146c-30-14-56 11-45 38 11 29 40 49 45 49 6 0 36-20 46-49 10-27-15-52-46-38Z" fill="#F47F69"/>
+  <path d="m148 144 10-16 9 15 12-15 8 17" fill="#69AB63" stroke-width="9"/>
+  <path d="m148 175 0 4m32-4 0 4m-16 14 0 4" stroke="#FFF8E3" stroke-width="7"/>
+  <path d="m343 145 40 14-51 75Z" fill="#F3A746"/>
+  <path d="m362 151 1-35m6 30 22-26" fill="none" stroke="#69AB63" stroke-width="12"/>
+  <path d="M150 211h263l-31 131H174Z" fill="#D9F0E1"/>
+  <path d="M93 168h44l39 174h206" fill="none"/>
+  <path d="M177 342v18c0 8 6 14 14 14h190" fill="none"/>
+  <path d="M181 228h200" stroke="#FFFFFF" stroke-width="9"/>
+  <circle cx="244" cy="274" r="7" fill="#283D32" stroke="none"/>
+  <circle cx="323" cy="274" r="7" fill="#283D32" stroke="none"/>
+  <path d="M263 296q20 20 40 0" fill="none" stroke-width="9"/>
+  <circle cx="204" cy="397" r="21" fill="#FFF8E3"/>
+  <circle cx="358" cy="397" r="21" fill="#FFF8E3"/>
+</g>
+</g></svg>

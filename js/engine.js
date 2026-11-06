@@ -1,145 +1,516 @@
-// ===== 병맛 효도 케이크 — 게임 엔진 v2 (DOM 없음, 레벨 지원) =====
+// ===== 심부름 장보기 — 게임 엔진 (DOM 없음) =====
 var NauEngine = (function () {
   'use strict';
 
   var ITEMS = {
-    '빵':        { emoji: '🍞', kind: 'bread',   label: '빵',        sound: 'bread' },
-    '생크림':    { emoji: '🍦', kind: 'cream',   label: '생크림',    sound: 'cream' },
-    '딸기':      { emoji: '🍓', kind: 'topping', label: '딸기',      sound: 'topping' },
-    '초콜릿':    { emoji: '🍫', kind: 'topping', label: '초콜릿',    sound: 'topping' },
-    '초':        { emoji: '🕯️', kind: 'deco',    label: '초',        sound: 'deco' },
-    '양말':      { emoji: '🧦', kind: 'trap',    label: '냄새나는 양말', sound: 'sock' },
-    '벽돌':      { emoji: '🧱', kind: 'trap',    label: '벽돌',      sound: 'brick' },
-    '다이아몬드': { emoji: '💎', kind: 'trap',    label: '다이아몬드', sound: 'gem' },
-    '다이너마이트': { emoji: '🧨', kind: 'boom',  label: '다이너마이트', sound: 'boom' }
+    '딸기': { emoji: '🍓', label: '딸기', sound: 'pick' },
+    '브로콜리': { emoji: '🥦', label: '브로콜리', sound: 'pick' },
+    '바나나': { emoji: '🍌', label: '바나나', sound: 'pick' },
+    '사과': { emoji: '🍎', label: '사과', sound: 'pick' },
+    '당근': { emoji: '🥕', label: '당근', sound: 'pick' },
+    '오렌지': { emoji: '🍊', label: '오렌지', sound: 'pick' },
+    '포도': { emoji: '🍇', label: '포도', sound: 'pick' },
+    '수박': { emoji: '🍉', label: '수박', sound: 'pick' },
+    '복숭아': { emoji: '🍑', label: '복숭아', sound: 'pick' },
+    '배': { emoji: '🍐', label: '배', sound: 'pick' },
+    '파인애플': { emoji: '🍍', label: '파인애플', sound: 'pick' },
+    '레몬': { emoji: '🍋', label: '레몬', sound: 'pick' },
+    '체리': { emoji: '🍒', label: '체리', sound: 'pick' },
+    '오이': { emoji: '🥒', label: '오이', sound: 'pick' },
+    '옥수수': { emoji: '🌽', label: '옥수수', sound: 'pick' },
+    '감자': { emoji: '🥔', label: '감자', sound: 'pick' },
+    '양말': { emoji: '🧦', label: '양말', sound: 'pick' },
+    '축구공': { emoji: '⚽', label: '축구공', sound: 'pick' },
+    '로봇': { emoji: '🤖', label: '로봇', sound: 'pick' },
+    '마이크': { emoji: '🎤', label: '마이크', sound: 'pick' },
+    '왕관': { emoji: '👑', label: '왕관', sound: 'pick' },
+    '로켓': { emoji: '🚀', label: '로켓', sound: 'pick' },
+    '마술봉': { emoji: '🪄', label: '마술봉', sound: 'pick' },
+    '북': { emoji: '🥁', label: '북', sound: 'pick' },
+    '자석': { emoji: '🧲', label: '자석', sound: 'pick' },
+    '오리인형': { emoji: '🦆', label: '오리인형', sound: 'pick' }
   };
-  var KIND_LABEL = { bread: '빵', cream: '생크림', topping: '토핑', deco: '장식(초)' };
-  var KIND_EMOJI = { bread: '🍞', cream: '🍦', topping: '🍓🍫', deco: '🕯️' };
+  var INGREDIENTS = ['딸기', '브로콜리', '바나나', '사과', '당근', '오렌지', '포도', '수박',
+    '복숭아', '배', '파인애플', '레몬', '체리', '오이', '옥수수', '감자'];
+  var HAZARDS = {
+    '물웅덩이': { emoji: '💦', label: '물웅덩이', penalty: 10, motion: 'slip' },
+    '미끄럼': { emoji: '🧼', label: '미끄러운 바닥', penalty: 10, motion: 'slip' },
+    '얼음판': { emoji: '🧊', label: '얼음판', penalty: 10, motion: 'slip' },
+    '바나나껍질': { emoji: '🍌', label: '바나나껍질', penalty: 10, motion: 'slip' },
+    '진흙': { emoji: '🟤', label: '진흙', penalty: 10, motion: 'sticky' },
+    '거미줄': { emoji: '🕸️', label: '거미줄', penalty: 10, motion: 'sticky' },
+    '꿀웅덩이': { emoji: '🍯', label: '꿀웅덩이', penalty: 10, motion: 'sticky' },
+    '장난감블록': { emoji: '🧱', label: '장난감블록', penalty: 10, motion: 'bump' }
+  };
+  var FAILURES = {
+    '양말': {
+      id: 'socks', emoji: '🧦', title: '양말 세탁소 엔딩',
+      message: '양말을 담았더니 거품이 몽글몽글! 마트가 세탁소로 변했어요.',
+      caption: '심부름 실패 · 빨래는 대성공!',
+      props: ['🫧', '🧦', '🧺'], notes: [440, 554.37, 659.25, 523.25]
+    },
+    '축구공': {
+      id: 'football', emoji: '⚽', title: '마트 월드컵 엔딩',
+      message: '축구공이 데굴데굴! 과일들이 선수로 모여 마트 월드컵이 시작됐어요.',
+      caption: '심부름 실패 · 우승컵은 가져왔어요!',
+      props: ['⚽', '🏆', '🥅'], notes: [523.25, 659.25, 783.99, 1046.5]
+    },
+    '로봇': {
+      id: 'robot', emoji: '🤖', title: '삐빅! 댄스 파티 엔딩',
+      message: '삐빅! 로봇이 장보기 대신 댄스 파티를 시작했어요. 모두 흔들흔들!',
+      caption: '심부름 실패 · 춤 실력 +100!',
+      props: ['🎵', '🤖', '✨'], notes: [440, 659.25, 554.37, 880], waveform: 'square'
+    },
+    '마이크': {
+      id: 'microphone', emoji: '🎤', title: '마트 노래왕 엔딩',
+      message: '마이크를 집자 조명이 반짝! 채소 합창단과 함께 마트 콘서트가 시작됐어요.',
+      caption: '심부름 실패 · 앙코르만 세 번째!',
+      props: ['🎤', '🎶', '🌟'], notes: [392, 493.88, 587.33, 783.99]
+    },
+    '왕관': {
+      id: 'crown', emoji: '👑', title: '장보기 왕국 엔딩',
+      message: '왕관을 쓰자 카트가 왕좌로 변했어요! 과일 신하들이 줄지어 인사해요.',
+      caption: '심부름 실패 · 왕위에 올랐어요!',
+      props: ['👑', '✨', '🏰'], notes: [523.25, 698.46, 783.99, 1046.5]
+    },
+    '로켓': {
+      id: 'rocket', emoji: '🚀', title: '우주 배송 엔딩',
+      message: '로켓이 장바구니를 싣고 슝! 장보기 대신 토성으로 우주 배송을 떠났어요.',
+      caption: '심부름 실패 · 배송지는 토성!',
+      props: ['🚀', '⭐', '🪐'], notes: [261.63, 392, 587.33, 880], waveform: 'sine'
+    },
+    '마술봉': {
+      id: 'wand', emoji: '🪄', title: '토끼 대소동 엔딩',
+      message: '마술봉을 흔들자 펑! 장바구니에서 토끼들이 폴짝폴짝 뛰어나왔어요.',
+      caption: '심부름 실패 · 토끼는 한 바구니!',
+      props: ['🪄', '🐇', '🎩'], notes: [659.25, 783.99, 987.77, 1318.51]
+    },
+    '북': {
+      id: 'drum', emoji: '🥁', title: '마트 행진곡 엔딩',
+      message: '둥둥! 북소리를 듣고 카트 행진대가 출발했어요. 마트 한 바퀴 퍼레이드!',
+      caption: '심부름 실패 · 퍼레이드 출발!',
+      props: ['🥁', '🎺', '🎶'], notes: [130.81, 196, 261.63, 196], waveform: 'square'
+    },
+    '자석': {
+      id: 'magnet', emoji: '🧲', title: '숟가락 폭풍 엔딩',
+      message: '자석에 숟가락들이 찰칵찰칵! 재료 대신 반짝이는 숟가락 산이 생겼어요.',
+      caption: '심부름 실패 · 숟가락만 잔뜩!',
+      props: ['🧲', '🥄', '🪙'], notes: [440, 415.3, 392, 523.25], waveform: 'sine'
+    },
+    '오리인형': {
+      id: 'duck', emoji: '🦆', title: '꽥꽥 목욕탕 엔딩',
+      message: '오리인형이 꽥꽥! 거품 욕조가 나타나고 마트가 오리들의 목욕탕이 됐어요.',
+      caption: '심부름 실패 · 목욕 준비 완료!',
+      props: ['🦆', '🫧', '🛁'], notes: [349.23, 440, 349.23, 523.25]
+    }
+  };
 
-  // 맵 기호: '#' 선반(벽), '.' 통로, 'S' 입구, 'E' 계산대, 그 외 = 아이템 선반(통과 불가, 앞에서 집기)
-  // thresholds: 완벽한 케이크일 때 칭호 기준 블록 수 [장인 이하, 코더 이하]
+  // '#'은 벽, '.'은 통로, 'S'는 시작 칸. 물건이 놓인 칸도 지나갈 수 있다.
   var LEVELS = [
     {
-      id: 1, name: '레벨 1 · 첫 장보기', who: '초등 저학년 · 처음 해보는 사람',
-      desc: '빵 → 생크림 → 딸기, 3층 케이크. 한 줄 복도라 반복 없이도 풀 수 있어요.',
-      recipe: ['bread', 'cream', 'topping'],
-      map: [
-        ['S', '.', '.', '.', '.', '.'],
-        ['#', '빵', '양말', '생크림', '벽돌', '딸기']
-      ],
-      thresholds: [10, 13],
+      id: 1, name: '초1–3', targetCount: 3,
+      shoppingList: ['딸기', '브로콜리', '사과'],
+      size: 5,
       starter: { blocks: { languageVersion: 0, blocks: [
-        { type: 'nau_move', x: 24, y: 24, next: { block: { type: 'nau_right', next: { block: { type: 'nau_pick' } } } } } ] } }
+        { type: 'nau_start', x: 24, y: 24, next: { block: { type: 'nau_move' } } }
+      ] } }
     },
     {
-      id: 2, name: '레벨 2 · 반복의 힘', who: '초등 고학년 · 중등',
-      desc: '6층 케이크. 재료가 2칸마다 번갈아 놓여 있어서, 반복 블록을 쓰면 블록 수가 절반으로 줄어요. 한 칸 틀리면 벽돌이나 다이너마이트!',
-      recipe: ['bread', 'cream', 'bread', 'cream', 'topping', 'deco'],
-      map: [
-        ['S', '.', '.', '.', '.', '.', '.', '.'],
-        ['#', '양말', '빵', '벽돌', '생크림', '다이아몬드', '빵', '.'],
-        ['#', '#', '#', '#', '#', '#', '생크림', '.'],
-        ['#', '#', '#', '#', '#', '#', '다이너마이트', '.'],
-        ['#', '#', '#', '#', '#', '#', '딸기', '.'],
-        ['#', '#', '#', '#', '#', '#', '다이너마이트', '.'],
-        ['#', '#', '#', '#', '#', '#', '초', '.'],
-        ['#', '#', '#', '#', '#', '#', '#', 'E']
-      ],
-      thresholds: [16, 31],
+      id: 2, name: '초4–6', targetCount: 5,
+      shoppingList: ['딸기', '브로콜리', '사과', '당근', '바나나'],
+      size: 8,
       starter: { blocks: { languageVersion: 0, blocks: [
-        { type: 'nau_repeat', x: 24, y: 24, fields: { TIMES: 2 }, inputs: { DO: { block: { type: 'nau_move' } } },
-          next: { block: { type: 'nau_right', next: { block: { type: 'nau_pick' } } } } } ] } }
-    },
-    {
-      id: 3, name: '레벨 3 · 미로 마트', who: '중등 · 챌린지',
-      desc: '기획서 원본 맵. 빵과 생크림 선반 사이를 왕복해야 해서 길이 길어요. "빵을 집었다면 / 생크림을 집었다면" 조건을 잘 쓰면 블록이 확 줄어요.',
-      recipe: ['bread', 'cream', 'bread', 'cream', 'topping', 'deco'],
-      map: [
-        ['S', '.', '.', '.', '.', '딸기', '.', '초'],
-        ['.', '#', '#', '빵', '#', '생크림', '.', '다이너마이트'],
-        ['.', '#', '.', '.', '#', '.', '.', '.'],
-        ['.', '#', '.', '.', '#', '.', '.', '.'],
-        ['.', '.', '.', '.', '.', '.', '.', '.'],
-        ['.', '.', '생크림', '.', '#', '.', '.', '.'],
-        ['.', '.', '#', '양말', '.', '다이아몬드', '#', '#'],
-        ['벽돌', '빵', '#', '초콜릿', '.', '.', '.', 'E']
-      ],
-      thresholds: [40, 56],
-      starter: { blocks: { languageVersion: 0, blocks: [
-        { type: 'nau_repeat', x: 24, y: 24, fields: { TIMES: 3 }, inputs: { DO: { block: { type: 'nau_move' } } },
-          next: { block: { type: 'nau_right', next: { block: { type: 'nau_pick' } } } } } ] } }
+        {
+          type: 'nau_start', x: 24, y: 24, next: { block: {
+            type: 'nau_repeat', fields: { TIMES: 2 },
+            inputs: { DO: { block: { type: 'nau_move' } } }
+          } }
+        }
+      ] } }
     }
   ];
 
   var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // 북, 동, 남, 서
   var MAX_YIELDS = 600;
+  var EFFORT_BANDS = {
+    1: { moves: [9, 10], turns: [3, 4], commands: [12, 14] },
+    2: { moves: [20, 22], turns: [6, 7], commands: [26, 28] }
+  };
+
+  function shuffle(values, random) {
+    for (var i = values.length - 1; i > 0; i--) {
+      var j = Math.min(i, Math.max(0, Math.floor(random() * (i + 1))));
+      var value = values[i]; values[i] = values[j]; values[j] = value;
+    }
+    return values;
+  }
+  function seededRandom(seed) {
+    return function () {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+  }
+  function cellKey(cell) { return cell[0] + ',' + cell[1]; }
+  function neighbors(map, cell) {
+    return DIRS.map(function (dir) { return [cell[0] + dir[0], cell[1] + dir[1]]; })
+      .filter(function (next) { return map[next[0]] && map[next[0]][next[1]] !== undefined && map[next[0]][next[1]] !== '#'; });
+  }
+  function pathsFrom(map, start) {
+    var paths = {}, queue = [start];
+    paths[cellKey(start)] = [start];
+    for (var i = 0; i < queue.length; i++) {
+      var cell = queue[i];
+      neighbors(map, cell).forEach(function (next) {
+        var key = cellKey(next);
+        if (!paths[key]) {
+          paths[key] = paths[cellKey(cell)].concat([next]);
+          queue.push(next);
+        }
+      });
+    }
+    return paths;
+  }
+  // 격자 통로에 여러 연결로를 남긴다. 막다른 길 왕복 대신 경로를 고르게 한다.
+  function makeMaze(size, difficult, random) {
+    var map = [], last = size % 2 ? size - 1 : size - 2, connectors = [];
+    for (var row = 0; row < size; row++) map.push(Array(size).fill('#'));
+    for (var r = 0; r <= last; r++) for (var c = 0; c <= last; c++) {
+      if (r % 2 === 0 || c % 2 === 0) map[r][c] = '.';
+      if ((r + c) % 2 && !(r === 0 && c === 1) && !(r === 1 && c === 0)) connectors.push([r, c]);
+    }
+    if (!difficult) {
+      var openings = shuffle([[1, 1], [1, 3], [3, 1], [3, 3]], random);
+      // 작은 지도도 벽의 모양이 달라지도록 일부 모퉁이를 넓힌다.
+      openings.slice(0, 1 + Math.min(1, Math.max(0, Math.floor(random() * 2)))).forEach(function (cell) {
+        map[cell[0]][cell[1]] = '.';
+      });
+    }
+    if (size % 2 === 0) {
+      var loops = [];
+      for (var n = 0; n < last; n += 2) loops.push(['row', n], ['col', n]);
+      // 가장자리도 두 입구가 있는 우회로로 만든다. 긴 외길은 만들지 않는다.
+      shuffle(loops, random).slice(0, 2).forEach(function (loop) {
+        for (var i = 0; i < 3; i++) {
+          if (loop[0] === 'row') map[size - 1][loop[1] + i] = '.';
+          else map[loop[1] + i][size - 1] = '.';
+        }
+      });
+    }
+    shuffle(connectors, random);
+    var walls = difficult ? 4 : 3;
+    connectors.slice(0, walls).forEach(function (cell) { map[cell[0]][cell[1]] = '#'; });
+    // 함정은 연결 통로 일부에 둔다. 뒤에서 안전한 우회로와 목표 경로를 검증한다.
+    connectors.slice(walls, walls + (difficult ? 3 : 1)).forEach(function (cell, i) {
+      map[cell[0]][cell[1]] = i % 2 ? '미끄럼' : '물웅덩이';
+    });
+    map[0][0] = 'S';
+    return map;
+  }
+
+  function edgeKey(a, b) {
+    var keys = [cellKey(a), cellKey(b)].sort();
+    return keys[0] + '/' + keys[1];
+  }
+
+  function safeCore(map, difficult) {
+    var safeMap = map.map(function (row) { return row.map(function (cell) { return HAZARDS[cell] ? '#' : cell; }); });
+    var startPaths = pathsFrom(safeMap, [0, 0]);
+    var cells = [];
+    safeMap.forEach(function (row, r) { row.forEach(function (cell, c) { if (cell !== '#') cells.push([r, c]); }); });
+    if (Object.keys(startPaths).length !== cells.length) return null;
+    // 다리 통로를 뺀 입구 쪽 순환 구역에만 목표를 둔다. 필수 왕복 구간을 없앤다.
+    var discovered = {}, low = {}, bridges = new Set(), tick = 0;
+    function visit(cell, parent) {
+      var key = cellKey(cell);
+      discovered[key] = low[key] = ++tick;
+      neighbors(safeMap, cell).forEach(function (next) {
+        var nextKey = cellKey(next);
+        if (nextKey === parent) return;
+        if (!discovered[nextKey]) {
+          visit(next, key);
+          low[key] = Math.min(low[key], low[nextKey]);
+          if (low[nextKey] > discovered[key]) bridges.add(edgeKey(cell, next));
+        } else low[key] = Math.min(low[key], discovered[nextKey]);
+      });
+    }
+    visit([0, 0], null);
+    var core = [[0, 0]], seen = new Set(['0,0']), edgeCount = 0;
+    for (var i = 0; i < core.length; i++) {
+      neighbors(safeMap, core[i]).forEach(function (next) {
+        if (bridges.has(edgeKey(core[i], next))) return;
+        edgeCount++;
+        if (!seen.has(cellKey(next))) { seen.add(cellKey(next)); core.push(next); }
+      });
+    }
+    if (edgeCount / 2 - core.length + 1 < (difficult ? 4 : 2)) return null;
+    return { map: safeMap, cells: cells, core: core, keys: seen, startPaths: startPaths };
+  }
+
+  // 같은 칸을 두 번 지나지 않는 짧고 안전한 수집 경로를 먼저 확보한다.
+  function simpleRoute(graph, difficult, random) {
+    var route = [[0, 0]], seen = new Set(['0,0']), budget = difficult ? 2400 : 600;
+    var limit = difficult ? 24 : 12;
+    function extend() {
+      if (route.length - 1 === limit) return true;
+      if (--budget < 0) return false;
+      var options = shuffle(neighbors(graph.map, route[route.length - 1]).filter(function (cell) {
+        return graph.keys.has(cellKey(cell)) && !seen.has(cellKey(cell));
+      }), random);
+      for (var i = 0; i < options.length; i++) {
+        var cell = options[i], key = cellKey(cell);
+        route.push(cell); seen.add(key);
+        if (extend()) return true;
+        route.pop(); seen.delete(key);
+      }
+      return false;
+    }
+    return extend() ? route : null;
+  }
+
+  function shortestTour(targets, startPaths, targetPaths) {
+    var best = Infinity;
+    function visit(left, previous, moves) {
+      if (moves >= best) return;
+      if (!left.length) { best = moves; return; }
+      left.forEach(function (index) {
+        var paths = previous === null ? startPaths : targetPaths[previous];
+        visit(left.filter(function (other) { return other !== index; }), index,
+          moves + paths[cellKey(targets[index])].length - 1);
+      });
+    }
+    visit(targets.map(function (_, index) { return index; }), null, 0);
+    return best;
+  }
+
+  // 동쪽을 보는 입구에서 시작해 이동과 90도 회전을 각각 한 동작으로 센다.
+  // 같은 최소 동작 수라면 회전이 더 적은 경로를 골라 하나의 기준 풀이를 비교한다.
+  // 집기와 종료는 난이도마다 같은 횟수이므로 이 탐색에서는 제외한다.
+  function efficientTour(map, targets, limit) {
+    var cols = map[0].length, area = map.length * cols, masks = 1 << targets.length;
+    var targetBits = new Uint8Array(area);
+    targets.forEach(function (cell, i) { targetBits[cell[0] * cols + cell[1]] = 1 << i; });
+    var distance = new Int16Array(area * 4 * masks), turns = new Uint16Array(distance.length);
+    var queue = new Uint16Array(distance.length), tail = 1, best = null;
+    distance.fill(-1); distance[1] = 0; queue[0] = 1;
+    function enqueue(state, commands, rotations) {
+      if (distance[state] === -1) {
+        distance[state] = commands; turns[state] = rotations; queue[tail++] = state;
+      } else if (distance[state] === commands && rotations < turns[state]) {
+        // BFS에서 이전 층의 동률 경로는 다음 층을 처리하기 전에 모두 반영된다.
+        turns[state] = rotations;
+      }
+    }
+    for (var head = 0; head < tail; head++) {
+      var state = queue[head], commands = distance[state], rotations = turns[state];
+      if (best && commands > best.commands) break;
+      var dir = state % 4, cell = (state >> 2) % area, mask = Math.floor((state >> 2) / area);
+      if (mask === masks - 1) {
+        if (!best || rotations < best.turns) best = { commands: commands, turns: rotations, moves: commands - rotations };
+        continue;
+      }
+      if (commands >= limit || best) continue;
+      var base = (mask * area + cell) * 4;
+      enqueue(base + (dir + 1) % 4, commands + 1, rotations + 1);
+      enqueue(base + (dir + 3) % 4, commands + 1, rotations + 1);
+      var row = Math.floor(cell / cols) + DIRS[dir][0], col = cell % cols + DIRS[dir][1];
+      if (!map[row] || map[row][col] === undefined || map[row][col] === '#') continue;
+      var next = row * cols + col, nextMask = mask | targetBits[next];
+      enqueue((nextMask * area + next) * 4 + dir, commands + 1, rotations);
+    }
+    return best;
+  }
+
+  function chooseTargets(graph, route, count, difficult, random) {
+    var band = EFFORT_BANDS[difficult ? 2 : 1];
+    var pool = route.filter(function (cell) {
+      return graph.startPaths[cellKey(cell)].length - 1 >= (difficult ? 4 : 2);
+    });
+    var fromCells = {};
+    pool.forEach(function (cell) { fromCells[cellKey(cell)] = pathsFrom(graph.map, cell); });
+    for (var attempt = 0; attempt < 40; attempt++) {
+      var targets = [];
+      shuffle(pool.slice(), random).forEach(function (cell) {
+        if (targets.length === count) return;
+        if (targets.every(function (target) {
+          return fromCells[cellKey(target)][cellKey(cell)].length - 1 >= (difficult ? 3 : 2);
+        })) targets.push(cell);
+      });
+      if (targets.length !== count) continue;
+      var targetPaths = targets.map(function (cell) { return fromCells[cellKey(cell)]; });
+      var spread = 0;
+      targets.forEach(function (cell, i) { targets.forEach(function (other) {
+        spread = Math.max(spread, targetPaths[i][cellKey(other)].length - 1);
+      }); });
+      if (spread < (difficult ? 7 : 4)) continue;
+      var shortestMoves = shortestTour(targets, graph.startPaths, targetPaths);
+      if (shortestMoves < band.moves[0] || shortestMoves > band.moves[1]) continue;
+      var effort = efficientTour(graph.map, targets, band.commands[1]);
+      if (!effort || effort.commands < band.commands[0] || effort.moves < band.moves[0] || effort.moves > band.moves[1] ||
+          effort.turns < band.turns[0] || effort.turns > band.turns[1]) continue;
+      return targets;
+    }
+    return null;
+  }
+
+  // 매 호출은 독립된 지도와 시작 블록을 반환한다. 재실행은 Engine.reset()을 쓴다.
+  function generateLevel(idOrLevel, random) {
+    var template = levelById(typeof idOrLevel === 'object' && idOrLevel ? idOrLevel.id : idOrLevel);
+    if (!template) throw new RangeError('알 수 없는 난이도입니다.');
+    if (random !== undefined && typeof random !== 'function') throw new TypeError('random은 함수여야 합니다.');
+    random = random || Math.random;
+    var difficult = template.id === 2, targetCount = template.targetCount, map, graph, targets;
+    // 재시도도 서로 다른 시드로 이어가 같은 대체 지도에 쏠리지 않게 한다.
+    // 마지막에는 검증된 고정 시드를 사용해 극단적인 난수 함수에서도 종료한다.
+    for (var attempt = 0; attempt < 240; attempt++) {
+      if (attempt === 80) random = seededRandom((Math.floor(random() * 4294967296) >>> 0) ^ (template.id * 997));
+      if (attempt === 160) random = seededRandom(template.id * 997);
+      map = makeMaze(template.size, difficult, random);
+      graph = safeCore(map, difficult);
+      if (!graph) continue;
+      var route = simpleRoute(graph, difficult, random);
+      if (!route) continue;
+      targets = chooseTargets(graph, route, targetCount, difficult, random);
+      if (targets) break;
+    }
+    if (!targets) throw new Error('안전한 지도를 생성할 수 없습니다.');
+    var shoppingList = shuffle(INGREDIENTS.slice(), random).slice(0, targetCount);
+    shuffle(targets, random);
+    targets.forEach(function (cell, i) { map[cell[0]][cell[1]] = shoppingList[i]; });
+    var hazardTypes = shuffle(Object.keys(HAZARDS), random), hazardIndex = 0;
+    map.forEach(function (row, r) { row.forEach(function (cell, c) {
+      if (HAZARDS[cell]) map[r][c] = hazardTypes[hazardIndex++];
+    }); });
+    var extras = shuffle(Object.keys(FAILURES), random).slice(0, difficult ? 3 : 1);
+    var available = graph.cells.filter(function (cell) { return map[cell[0]][cell[1]] === '.'; });
+    shuffle(available, random).slice(0, extras.length).forEach(function (cell, i) { map[cell[0]][cell[1]] = extras[i]; });
+    return { id: template.id, name: template.name, size: template.size, targetCount: targetCount, shoppingList: shoppingList,
+      map: map, starter: JSON.parse(JSON.stringify(template.starter)) };
+  }
+
+  LEVELS.forEach(function (level) {
+    var sample = generateLevel(level.id, seededRandom(level.id * 101));
+    level.map = sample.map;
+    level.shoppingList = sample.shoppingList;
+  });
 
   function findStart(map) {
-    for (var r = 0; r < map.length; r++) for (var c = 0; c < map[r].length; c++) if (map[r][c] === 'S') return [r, c];
+    for (var row = 0; row < map.length; row++) {
+      var col = map[row].indexOf('S');
+      if (col !== -1) return [row, col];
+    }
     return [0, 0];
   }
 
   function Engine(level) { this.setLevel(level || LEVELS[0]); }
   Engine.prototype.setLevel = function (level) {
-    this.level = level; this.map = level.map; this.recipe = level.recipe;
-    this.rows = level.map.length; this.cols = level.map[0].length;
-    var s = findStart(level.map); this.sr = s[0]; this.sc = s[1];
+    this.level = level;
+    this.map = level.map;
+    this.shoppingList = level.shoppingList;
+    this.rows = level.map.length;
+    this.cols = level.map[0].length;
+    var start = findStart(level.map);
+    this.sr = start[0];
+    this.sc = start[1];
     this.reset();
   };
   Engine.prototype.reset = function () {
-    this.r = this.sr; this.c = this.sc; this.d = 1; // 입구에서 동쪽을 보고 시작
-    this.cake = []; this.actions = 0; this.yields = 0; this.bumps = 0;
-    this.ended = false; this.exploded = false; this.checkedOut = false; this.overflow = false;
+    this.r = this.sr;
+    this.c = this.sc;
+    this.d = 1; // 입구에서 동쪽을 보고 시작
+    this.collected = [];
+    this.pickedCells = new Set();
+    this.actions = 0;
+    this.yields = 0;
+    this.bumps = 0;
+    this.triggeredTraps = new Set();
+    this.trapHits = 0;
+    this.trapPenalty = 0;
+    this.ended = false;
+    this.checkedOut = false;
+    this.overflow = false;
+    this.failure = null;
   };
-  Engine.prototype.cellAt = function (r, c) {
-    if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return '#';
-    return this.map[r][c];
+  Engine.prototype.cellAt = function (row, col) {
+    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return '#';
+    return this.map[row][col];
   };
-  // 못 지나가는 곳: 맵 밖, 선반(#), 아이템 선반
-  Engine.prototype.blocked = function (cell) { return cell === '#' || !!ITEMS[cell]; };
-  Engine.prototype.front = function () { var dd = DIRS[this.d]; return [this.r + dd[0], this.c + dd[1]]; };
+  Engine.prototype.front = function () {
+    var dir = DIRS[this.d];
+    return [this.r + dir[0], this.c + dir[1]];
+  };
   Engine.prototype.move = function () {
     this.actions++;
-    var f = this.front(), cell = this.cellAt(f[0], f[1]);
-    if (this.blocked(cell)) { this.bumps++; return { type: 'bump', shelf: !!ITEMS[cell] }; }
-    this.r = f[0]; this.c = f[1];
-    if (cell === 'E') { this.checkedOut = true; this.ended = true; return { type: 'checkout' }; }
+    var front = this.front();
+    if (this.cellAt(front[0], front[1]) === '#') {
+      this.bumps++;
+      return { type: 'bump' };
+    }
+    this.r = front[0];
+    this.c = front[1];
+    var cell = this.cellAt(this.r, this.c), key = this.r + ',' + this.c;
+    if (HAZARDS[cell] && !this.triggeredTraps.has(key)) {
+      this.triggeredTraps.add(key);
+      this.trapHits++;
+      this.trapPenalty += HAZARDS[cell].penalty;
+      return { type: 'trap', hazard: cell, row: this.r, col: this.c, penalty: HAZARDS[cell].penalty };
+    }
     return { type: 'move' };
   };
-  Engine.prototype.turn = function (lr) { this.actions++; this.d = (this.d + (lr === 'L' ? 3 : 1)) % 4; return { type: 'turn', lr: lr }; };
+  Engine.prototype.turn = function (lr) {
+    this.actions++;
+    this.d = (this.d + (lr === 'L' ? 3 : 1)) % 4;
+    return { type: 'turn' };
+  };
+  Engine.prototype.pickedAt = function (row, col) {
+    return this.pickedCells.has(row + ',' + col);
+  };
   Engine.prototype.pick = function () {
     this.actions++;
-    var f = this.front(), cell = this.cellAt(f[0], f[1]);
-    if (!ITEMS[cell]) return { type: 'pickNothing' };
-    this.cake.push(cell);
-    if (ITEMS[cell].kind === 'boom') { this.exploded = true; this.ended = true; return { type: 'boom', item: cell }; }
-    return { type: 'pick', item: cell };
-  };
-  Engine.prototype.cond = function (k) {
-    var f = this.front(), cell = this.cellAt(f[0], f[1]);
-    var last = this.cake[this.cake.length - 1];
-    switch (k) {
-      case 'WALL': return this.blocked(cell);
-      case 'NOWALL': return !this.blocked(cell);
-      case 'GOT_BREAD': return last === '빵';
-      case 'GOT_CREAM': return last === '생크림';
+    var item = this.cellAt(this.r, this.c);
+    if (!ITEMS[item] || this.pickedAt(this.r, this.c)) return { type: 'pickNothing' };
+    this.pickedCells.add(this.r + ',' + this.c);
+    this.collected.push(item);
+    var event = { type: 'pick', item: item, row: this.r, col: this.c };
+    if (FAILURES[item] && !this.shoppingList.includes(item)) {
+      this.failure = item;
+      this.ended = true;
+      event.failure = item;
     }
-    return false;
+    return event;
   };
+  Engine.prototype.checkout = function () {
+    this.actions++;
+    this.checkedOut = true;
+    this.ended = true;
+    return { type: 'checkout' };
+  };
+  Engine.prototype.cond = function (condition) {
+    var front = this.front();
+    var wall = this.cellAt(front[0], front[1]) === '#';
+    return condition === 'WALL' ? wall : condition === 'NOWALL' && !wall;
+  };
+
+  function reserveYield(eng) {
+    if (eng.ended) return false;
+    if (++eng.yields <= MAX_YIELDS) return true;
+    eng.overflow = true;
+    eng.ended = true;
+    return false;
+  }
 
   function* interpret(seq, eng) {
     for (var i = 0; i < seq.length; i++) {
       var node = seq[i];
-      if (eng.ended) return;
-      if (++eng.yields > MAX_YIELDS) { eng.overflow = true; eng.ended = true; return; }
+      if (!reserveYield(eng)) return;
       switch (node.op) {
-        case 'move':  yield { node: node, ev: eng.move() }; break;
-        case 'left':  yield { node: node, ev: eng.turn('L') }; break;
+        case 'move': yield { node: node, ev: eng.move() }; break;
+        case 'left': yield { node: node, ev: eng.turn('L') }; break;
         case 'right': yield { node: node, ev: eng.turn('R') }; break;
-        case 'pick':  yield { node: node, ev: eng.pick() }; break;
+        case 'pick': yield { node: node, ev: eng.pick() }; break;
+        case 'checkout': yield { node: node, ev: eng.checkout() }; break;
         case 'repeat':
           yield { node: node, ev: { type: 'repeat', n: node.n } };
-          for (var k = 0; k < node.n; k++) { if (eng.ended) return; yield* interpret(node.body || [], eng); }
+          for (var k = 0; k < node.n && !eng.ended; k++) yield* interpret(node.body || [], eng);
           break;
         case 'if': {
           var ok = eng.cond(node.cond);
@@ -147,51 +518,64 @@ var NauEngine = (function () {
           if (ok) yield* interpret(node.body || [], eng);
           break;
         }
+        case 'while':
+        case 'until': {
+          // 첫 조건 검사는 위에서 확보한 한도를 사용한다. 빈 본문도 매번
+          // 조건 이벤트를 내보내므로 화면이 멈추지 않고 같은 한도로 끝난다.
+          while (!eng.ended) {
+            var loopOk = eng.cond(node.cond);
+            yield { node: node, ev: { type: node.op, ok: loopOk, cond: node.cond } };
+            if (eng.ended || (node.op === 'while' ? !loopOk : loopOk)) break;
+            yield* interpret(node.body || [], eng);
+            if (!reserveYield(eng)) return;
+          }
+          break;
+        }
       }
     }
   }
 
-  // 점수표: 정상 +50 / 순서 오류 -10 / 이상한 재료 -20 / 다이너마이트 -100 / 빈손 0
+  // 목록에 있는 물건은 각 한 번씩 +50, 중복과 목록 밖 물건은 -20.
   function score(eng) {
-    var cake = eng.cake, recipe = eng.recipe, rows = [], total = 0, goodIdx = 0, perfect = true;
-    for (var i = 0; i < cake.length; i++) {
-      var it = cake[i], info = ITEMS[it];
-      var row = { item: it, emoji: info.emoji, label: info.label };
-      if (info.kind === 'boom') { row.verdict = '폭발'; row.pts = -100; perfect = false; }
-      else if (info.kind === 'trap') { row.verdict = '이상한 재료'; row.pts = -20; perfect = false; }
-      else {
-        if (goodIdx < recipe.length && recipe[goodIdx] === info.kind) { row.verdict = '정상 (' + (goodIdx + 1) + '층 ' + KIND_LABEL[recipe[goodIdx]] + ')'; row.pts = 50; }
-        else { row.verdict = '순서 오류'; row.pts = -10; perfect = false; }
-        goodIdx++;
+    var missing = new Set(eng.shoppingList);
+    var total = 0;
+    var wrong = false;
+    var rows = eng.collected.map(function (item) {
+      var info = ITEMS[item];
+      var row = { item: item, emoji: info.emoji, label: info.label };
+      if (missing.delete(item)) {
+        row.verdict = '목록에 있음';
+        row.pts = 50;
+      } else {
+        row.verdict = eng.shoppingList.includes(item) ? '이미 담았어요' : '목록에 없음';
+        row.pts = -20;
+        wrong = true;
       }
-      total += row.pts; rows.push(row);
-    }
-    if (goodIdx !== recipe.length) perfect = false;
-    var verdict;
-    if (cake.length === 0) { verdict = 'empty'; total = 0; }
-    else if (eng.exploded) verdict = 'boom';
-    else if (perfect) verdict = 'perfect';
-    else verdict = 'weird';
-    return { total: total, rows: rows, verdict: verdict, perfect: perfect, max: recipe.length * 50 };
+      total += row.pts;
+      return row;
+    });
+    var verdict = 'perfect';
+    if (eng.failure) verdict = 'easterEgg';
+    else if (!eng.checkedOut) verdict = 'unfinished';
+    else if (wrong) verdict = 'wrong';
+    else if (missing.size) verdict = 'incomplete';
+    else if (eng.trapHits) verdict = 'trapped';
+    return { total: total - eng.trapPenalty, rows: rows, verdict: verdict, perfect: verdict === 'perfect',
+      max: eng.shoppingList.length * 50, trapPenalty: eng.trapPenalty, traps: eng.trapHits, failure: eng.failure };
   }
 
-  function rankTitle(result, blockCount, level) {
-    if (!result.perfect) return null;
-    var t = (level && level.thresholds) || [45, 65];
-    if (blockCount <= t[0]) return '알고리즘 장인';
-    if (blockCount <= t[1]) return '효도 코더';
-    return '효도 성공';
-  }
   function compareEntries(a, b) {
     if (b.score !== a.score) return b.score - a.score;
-    if (a.blocks !== b.blocks) return a.blocks - b.blocks;
-    return a.actions - b.actions;
+    if (a.elapsedMs !== b.elapsedMs) return a.elapsedMs - b.elapsedMs;
+    if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+    if (typeof a.id === 'number' && typeof b.id === 'number') return a.id - b.id;
+    return String(a.id).localeCompare(String(b.id));
   }
-  function countBlocks(seq) { var n = 0; for (var i = 0; i < seq.length; i++) { n++; if (seq[i].body) n += countBlocks(seq[i].body); } return n; }
-  function levelById(id) { for (var i = 0; i < LEVELS.length; i++) if (LEVELS[i].id === Number(id)) return LEVELS[i]; return null; }
+  function levelById(id) {
+    return LEVELS.find(function (level) { return level.id === Number(id); }) || null;
+  }
 
-  return { ITEMS: ITEMS, KIND_LABEL: KIND_LABEL, KIND_EMOJI: KIND_EMOJI, LEVELS: LEVELS, DIRS: DIRS,
-           Engine: Engine, interpret: interpret, score: score, rankTitle: rankTitle,
-           compareEntries: compareEntries, countBlocks: countBlocks, levelById: levelById };
+  return { ITEMS: ITEMS, INGREDIENTS: INGREDIENTS, HAZARDS: HAZARDS, FAILURES: FAILURES, LEVELS: LEVELS, Engine: Engine, interpret: interpret, score: score,
+           compareEntries: compareEntries, levelById: levelById, generateLevel: generateLevel };
 })();
 if (typeof module !== 'undefined') module.exports = NauEngine;
